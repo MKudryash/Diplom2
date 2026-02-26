@@ -6,7 +6,7 @@
       <!-- Desktop Menu -->
       <div class="nav-menu">
         <a href="/" class="nav-link">Главная</a>
-        <a href="#about" class="nav-link">О нас</a>
+        <a href="/tests" class="nav-link">Тесты</a>
         <a href="#features" class="nav-link">Возможности</a>
         <a href="#stats" class="nav-link">Статистика</a>
       </div>

@@ -107,26 +107,7 @@ export default {
 </script>
 
 <style scoped>
-/* Базовые стили и переменные */
-.home {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.6;
-  color: #111;
-}
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-
-.section-title {
-  font-size: 2rem;
-  font-weight: 450;
-  letter-spacing: -0.02em;
-  margin-bottom: 2rem;
-  line-height: 1.2;
-}
 
 /* Hero */
 .hero {
@@ -191,47 +172,6 @@ export default {
   letter-spacing: 0.05em;
 }
 
-/* Process */
-.process {
-  padding: 80px 0;
-}
-
-.process-steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4rem;
-}
-
-.step-number {
-  font-size: 3rem;
-  font-weight: 400;
-  color: #ddd;
-  display: block;
-  margin-bottom: 1rem;
-  line-height: 1;
-}
-
-.step-title {
-  font-size: 1.25rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-}
-
-.step-text {
-  color: #666;
-}
-
-/* Features */
-.features {
-  padding: 80px 0;
-  background: #fafafa;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 3rem;
-}
 
 .feature h3 {
   font-size: 1.1rem;
@@ -276,11 +216,6 @@ export default {
   color: #999;
 }
 
-/* About */
-.about {
-  padding: 80px 0;
-  border-top: 1px solid #eee;
-}
 
 .about-content p {
   color: #666;
@@ -288,13 +223,6 @@ export default {
   max-width: 600px;
 }
 
-/* CTA */
-.cta {
-  padding: 100px 0;
-  background: #111;
-  color: white;
-  text-align: center;
-}
 
 .cta .section-title {
   color: white;
@@ -305,17 +233,6 @@ export default {
   margin-bottom: 2rem;
 }
 
-.cta-buttons {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-bottom: 1.5rem;
-}
-
-.cta-small {
-  font-size: 0.85rem;
-  color: #666;
-}
 
 /* Кнопки */
 .btn {
@@ -349,20 +266,10 @@ export default {
   border-color: #111;
 }
 
-.btn-link {
-  padding-left: 0;
-  padding-right: 0;
-  color: #111;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  border: none;
-}
 
 /* Адаптивность */
 @media (max-width: 768px) {
   .hero-title { font-size: 3rem; }
-  .process-steps { grid-template-columns: 1fr; gap: 2rem; }
-  .features-grid { grid-template-columns: 1fr; gap: 2rem; }
   .testimonials-grid { grid-template-columns: 1fr; gap: 2rem; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
