@@ -9,13 +9,53 @@
         <a href="/tests" class="nav-link">Тесты</a>
         <a href="#features" class="nav-link">Возможности</a>
         <a href="#stats" class="nav-link">Статистика</a>
+        <a v-if="isTeacher" href="/teacher/tests" class="nav-link">Панель преподавателя</a>
       </div>
 
+      <!-- Desktop Actions -->
       <div class="nav-actions">
-        <button @click="openLoginModal" class="nav-link btn-link">Вход</button>
-        <button @click="openRegisterModal" class="btn btn-primary btn-sm">
-          Регистрация
-        </button>
+        <template v-if="user">
+          <!-- Пользователь авторизован -->
+          <div class="user-menu">
+            <button @click="toggleUserMenu" class="user-button">
+              <span class="user-avatar">{{ userInitials }}</span>
+              <span class="user-name">{{ userFullName }}</span>
+              <span class="user-arrow">▼</span>
+            </button>
+            <div v-if="userMenuOpen" class="user-dropdown">
+              <!-- Динамический переход на профиль в зависимости от роли -->
+              <router-link
+                  :to="profileLink"
+                  class="dropdown-item"
+                  @click="userMenuOpen = false"
+              >
+                <span>👤</span> {{ profileLinkText }}
+              </router-link>
+
+              <!-- Ссылка на панель преподавателя (только для учителей) -->
+              <router-link
+                  v-if="isTeacher"
+                  to="/teacher/tests"
+                  class="dropdown-item"
+                  @click="userMenuOpen = false"
+              >
+                <span>📋</span> Мои тесты
+              </router-link>
+
+              <!-- Кнопка выхода -->
+              <a href="#" @click.prevent="logout" class="dropdown-item logout">
+                <span>🚪</span> Выйти
+              </a>
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <!-- Пользователь не авторизован -->
+          <button @click="openLoginModal" class="nav-link btn-link">Вход</button>
+          <button @click="openRegisterModal" class="btn btn-primary btn-sm">
+            Регистрация
+          </button>
+        </template>
       </div>
 
       <!-- Mobile Toggle -->
@@ -34,16 +74,36 @@
       </div>
       <div class="mobile-menu-content">
         <a href="/" class="mobile-link" @click="toggleMobileMenu">Главная</a>
-        <a href="#about" class="mobile-link" @click="toggleMobileMenu">О нас</a>
+        <a href="/tests" class="mobile-link" @click="toggleMobileMenu">Тесты</a>
         <a href="#features" class="mobile-link" @click="toggleMobileMenu">Возможности</a>
         <a href="#stats" class="mobile-link" @click="toggleMobileMenu">Статистика</a>
+        <a v-if="isTeacher" href="/teacher/tests" class="mobile-link" @click="toggleMobileMenu">
+          Панель преподавателя
+        </a>
+
         <div class="mobile-actions">
-          <button @click="openLoginModal" class="btn btn-outline btn-block">
-            Вход
-          </button>
-          <button @click="openRegisterModal" class="btn btn-primary btn-block">
-            Регистрация
-          </button>
+          <template v-if="user">
+            <!-- Мобильное меню для авторизованного пользователя -->
+            <div class="mobile-user-info">
+              <span class="mobile-user-avatar">{{ userInitials }}</span>
+              <span class="mobile-user-name">{{ userFullName }}</span>
+            </div>
+            <router-link to="/profile" class="btn btn-outline btn-block" @click="toggleMobileMenu">
+              Профиль
+            </router-link>
+            <button @click="logout" class="btn btn-outline btn-block">
+              Выйти
+            </button>
+          </template>
+          <template v-else>
+            <!-- Мобильное меню для неавторизованного пользователя -->
+            <button @click="openLoginModal" class="btn btn-outline btn-block">
+              Вход
+            </button>
+            <button @click="openRegisterModal" class="btn btn-primary btn-block">
+              Регистрация
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -53,6 +113,7 @@
         v-if="showLoginModal"
         @close="showLoginModal = false"
         @switch-to-register="switchToRegister"
+        @login-success="handleLoginSuccess"
     />
 
     <RegisterModal
@@ -64,6 +125,7 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
 import LoginModal from './login_modal.vue'
 import RegisterModal from './register_modal.vue'
 
@@ -78,29 +140,152 @@ export default {
       showLoginModal: false,
       showRegisterModal: false,
       mobileMenuOpen: false,
+      userMenuOpen: false,
+      user: null,
+      userProfile: null,
     }
   },
+  computed: {
+    profileLink() {
+      if (this.isTeacher) {
+        return '/teacher/profile' // или '/teacher' если у вас там профиль
+      }
+      return '/profile' // для студентов
+    },
+
+    // Текст для пункта меню
+    profileLinkText() {
+      if (this.isTeacher) {
+        return 'Профиль преподавателя'
+      }
+      return 'Профиль студента'
+    },
+
+    // Проверка на преподавателя
+
+    userFullName() {
+      if (this.userProfile) {
+        return `${this.userProfile.first_name || ''} ${this.userProfile.last_name || ''}`.trim() || 'Пользователь'
+      }
+      return this.user?.email?.split('@')[0] || 'Пользователь'
+    },
+    userInitials() {
+      if (this.userProfile?.first_name && this.userProfile?.last_name) {
+        return (this.userProfile.first_name[0] + this.userProfile.last_name[0]).toUpperCase()
+      }
+      return this.user?.email?.[0]?.toUpperCase() || '?'
+    },
+    isTeacher() {
+      return this.userProfile?.role === 'teacher' || this.userProfile?.role === 'admin'
+    }
+  },
+  async created() {
+    // Получаем текущую сессию
+    const { data: { session } } = await supabase.auth.getSession()
+    this.user = session?.user || null
+
+    if (this.user) {
+      await this.loadUserProfile()
+    }
+
+    // Слушаем изменения авторизации
+    supabase.auth.onAuthStateChange((event, session) => {
+      this.user = session?.user || null
+      if (this.user) {
+        this.loadUserProfile()
+      } else {
+        this.userProfile = null
+      }
+    })
+
+    // Закрываем меню при клике вне
+    document.addEventListener('click', this.handleClickOutside)
+  },
+  beforeDestroy() {
+    document.removeEventListener('click', this.handleClickOutside)
+  },
   methods: {
+    async loadUserProfile() {
+      if (!this.user) return
+
+      try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', this.user.id)
+            .single()
+
+        if (error) throw error
+        this.userProfile = data
+      } catch (error) {
+        console.error('Error loading profile:', error)
+      }
+    },
+
     openLoginModal() {
       this.showLoginModal = true
       this.showRegisterModal = false
       this.mobileMenuOpen = false
+      this.userMenuOpen = false
     },
+
     openRegisterModal() {
       this.showRegisterModal = true
       this.showLoginModal = false
       this.mobileMenuOpen = false
+      this.userMenuOpen = false
     },
+
     switchToLogin() {
       this.showRegisterModal = false
       this.showLoginModal = true
     },
+
     switchToRegister() {
       this.showLoginModal = false
       this.showRegisterModal = true
     },
+
+    handleLoginSuccess({ user, role }) {
+      this.user = user
+      this.loadUserProfile()
+      this.showLoginModal = false
+    },
+
+    async logout() {
+      try {
+        await supabase.auth.signOut()
+        this.user = null
+        this.userProfile = null
+        this.userMenuOpen = false
+        this.mobileMenuOpen = false
+
+        // Перенаправляем на главную
+        if (this.$route.path !== '/') {
+          this.$router.push('/')
+
+        }
+      } catch (error) {
+        console.error('Error logging out:', error)
+      }
+    },
+
     toggleMobileMenu() {
       this.mobileMenuOpen = !this.mobileMenuOpen
+      if (!this.mobileMenuOpen) {
+        this.userMenuOpen = false
+      }
+    },
+
+    toggleUserMenu() {
+      this.userMenuOpen = !this.userMenuOpen
+    },
+
+    handleClickOutside(event) {
+      const userMenu = document.querySelector('.user-menu')
+      if (userMenu && !userMenu.contains(event.target)) {
+        this.userMenuOpen = false
+      }
     },
   },
   watch: {
@@ -171,6 +356,91 @@ export default {
   display: flex;
   align-items: center;
   gap: 1.5rem;
+}
+
+/* User Menu Styles */
+.user-menu {
+  position: relative;
+}
+
+.user-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid #eee;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.user-button:hover {
+  border-color: #111;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  background: #f5f5f5;
+  border: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  color: #111;
+}
+
+.user-arrow {
+  font-size: 0.8rem;
+  color: #999;
+  margin-left: 4px;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  width: 200px;
+  background: white;
+  border: 1px solid #eee;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 101;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: #666;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: #fafafa;
+  color: #111;
+}
+
+.dropdown-item.logout:hover {
+  color: #f44336;
+}
+
+.dropdown-item span {
+  font-size: 1.1rem;
 }
 
 .btn {
@@ -286,6 +556,35 @@ export default {
   flex-direction: column;
   gap: 12px;
   margin-top: 24px;
+}
+
+.mobile-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #eee;
+  margin-bottom: 8px;
+}
+
+.mobile-user-avatar {
+  width: 40px;
+  height: 40px;
+  background: #f5f5f5;
+  border: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.mobile-user-name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #111;
 }
 
 /* Адаптивность */

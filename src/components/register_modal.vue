@@ -11,14 +11,37 @@
         <p class="modal-subtitle">Присоединяйтесь к Нетеста</p>
       </div>
 
+      <!-- Сообщение об ошибке -->
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
+
+      <!-- Сообщение об успехе -->
+      <div v-if="success" class="success-message">
+        {{ success }}
+      </div>
+
       <form @submit.prevent="handleRegister" class="modal-form">
         <div class="form-group">
-          <label for="name">Имя</label>
+          <label for="first_name">Имя</label>
           <input
               type="text"
-              id="name"
-              v-model="form.name"
-              placeholder="Иван Петров"
+              id="first_name"
+              v-model="form.first_name"
+              placeholder="Иван"
+              :disabled="loading"
+              required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="last_name">Фамилия</label>
+          <input
+              type="text"
+              id="last_name"
+              v-model="form.last_name"
+              placeholder="Петров"
+              :disabled="loading"
               required
           />
         </div>
@@ -30,6 +53,7 @@
               id="email"
               v-model="form.email"
               placeholder="your@email.com"
+              :disabled="loading"
               required
           />
         </div>
@@ -40,13 +64,15 @@
               :type="showPassword ? 'text' : 'password'"
               id="password"
               v-model="form.password"
-              placeholder="Минимум 8 символов"
+              placeholder="Минимум 6 символов"
+              :disabled="loading"
               required
           />
           <button
               type="button"
               class="password-toggle"
               @click="showPassword = !showPassword"
+              :disabled="loading"
           >
             {{ showPassword ? 'Скрыть' : 'Показать' }}
           </button>
@@ -59,12 +85,14 @@
               id="confirmPassword"
               v-model="form.confirmPassword"
               placeholder="Повторите пароль"
+              :disabled="loading"
               required
           />
           <button
               type="button"
               class="password-toggle"
               @click="showConfirmPassword = !showConfirmPassword"
+              :disabled="loading"
           >
             {{ showConfirmPassword ? 'Скрыть' : 'Показать' }}
           </button>
@@ -74,36 +102,39 @@
           <label>Роль</label>
           <div class="role-options">
             <label class="radio">
-              <input type="radio" value="student" v-model="form.role" />
+              <input type="radio" value="student" v-model="form.role" :disabled="loading" />
               <span>Студент</span>
             </label>
             <label class="radio">
-              <input type="radio" value="teacher" v-model="form.role" />
+              <input type="radio" value="teacher" v-model="form.role" :disabled="loading" />
               <span>Преподаватель</span>
             </label>
           </div>
         </div>
 
         <label class="checkbox terms">
-          <input type="checkbox" v-model="form.agree" required />
+          <input type="checkbox" v-model="form.agree" :disabled="loading" required />
           <span>
             Я соглашаюсь с
-            <a href="#">условиями использования</a>
+            <a href="#" @click.prevent>условиями использования</a>
             и
-            <a href="#">политикой конфиденциальности</a>
+            <a href="#" @click.prevent>политикой конфиденциальности</a>
           </span>
         </label>
 
         <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
           <span v-if="!loading">Зарегистрироваться</span>
-          <span v-else>Загрузка...</span>
+          <span v-else>
+            <span class="spinner"></span>
+            Загрузка...
+          </span>
         </button>
       </form>
 
       <div class="modal-footer">
         <p>
           Уже есть аккаунт?
-          <button class="link-button" @click="$emit('switch-to-login')">
+          <button class="link-button" @click="$emit('switch-to-login')" :disabled="loading">
             Войти
           </button>
         </p>
@@ -113,12 +144,15 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
+
 export default {
   name: 'RegisterModal',
   data() {
     return {
       form: {
-        name: '',
+        first_name: '',
+        last_name: '',
         email: '',
         password: '',
         confirmPassword: '',
@@ -128,29 +162,190 @@ export default {
       showPassword: false,
       showConfirmPassword: false,
       loading: false,
+      error: null,
+      success: null,
     }
   },
   methods: {
-    handleRegister() {
+    async handleRegister() {
+      // Валидация
+      if (!this.form.first_name || !this.form.last_name || !this.form.email || !this.form.password) {
+        this.error = 'Пожалуйста, заполните все поля'
+        return
+      }
+
+      if (this.form.password.length < 6) {
+        this.error = 'Пароль должен быть не менее 6 символов'
+        return
+      }
+
       if (this.form.password !== this.form.confirmPassword) {
-        alert('Пароли не совпадают')
+        this.error = 'Пароли не совпадают'
+        return
+      }
+
+      if (!this.form.agree) {
+        this.error = 'Необходимо согласиться с условиями использования'
         return
       }
 
       this.loading = true
-      // Имитация запроса к API
-      setTimeout(() => {
+      this.error = null
+      this.success = null
+
+      try {
+        // Регистрируем пользователя в Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: this.form.email,
+          password: this.form.password,
+          options: {
+            data: {
+              first_name: this.form.first_name,
+              last_name: this.form.last_name,
+              role: this.form.role,
+            },
+            emailRedirectTo: `${window.location.origin}/login`,
+          }
+        })
+
+        if (authError) throw authError
+
+        if (authData?.user) {
+          // Создаем профиль пользователя
+          const { error: profileError } = await supabase
+              .from('profiles')
+              .insert([{
+                id: authData.user.id,
+                email: this.form.email,
+                first_name: this.form.first_name,
+                last_name: this.form.last_name,
+                role: this.form.role,
+              }])
+
+          if (profileError) {
+            console.error('Error creating profile:', profileError)
+          }
+
+          // Настройки пользователя по умолчанию
+          const { error: settingsError } = await supabase
+              .from('user_settings')
+              .insert([{
+                user_id: authData.user.id,
+              }])
+
+          if (settingsError) {
+            console.error('Error creating user settings:', settingsError)
+          }
+
+          this.success = 'Регистрация успешна! Проверьте вашу почту для подтверждения email.'
+
+          // Автоматически закрываем модальное окно через 3 секунды
+          setTimeout(() => {
+            this.$emit('close')
+          }, 3000)
+        }
+      } catch (error) {
+        console.error('Ошибка регистрации:', error)
+
+        if (error.message.includes('User already registered')) {
+          this.error = 'Пользователь с таким email уже зарегистрирован'
+        } else if (error.message.includes('weak password')) {
+          this.error = 'Слишком слабый пароль'
+        } else {
+          this.error = error.message || 'Ошибка при регистрации. Попробуйте позже'
+        }
+      } finally {
         this.loading = false
-        console.log('Register:', this.form)
-        // Здесь будет реальная логика регистрации
-        this.$emit('close')
-      }, 1000)
+      }
     },
   },
 }
 </script>
 
 <style scoped>
+/* Стили аналогичны LoginModal с добавлением новых классов */
+
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  text-align: center;
+  border: 1px solid #ffcdd2;
+}
+
+.success-message {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  text-align: center;
+  border: 1px solid #a5d6a7;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.role-group {
+  margin-bottom: 16px;
+}
+
+.role-options {
+  display: flex;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #666;
+}
+
+.radio input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.radio input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terms {
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.terms a {
+  color: #111;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.terms a:hover {
+  color: #333;
+}
+
+/* Остальные стили из LoginModal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -243,9 +438,7 @@ export default {
   color: #333;
 }
 
-.form-group input[type="text"],
-.form-group input[type="email"],
-.form-group input[type="password"] {
+.form-group input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #ddd;
@@ -260,6 +453,11 @@ export default {
   border-color: #111;
 }
 
+.form-group input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
 .password-toggle {
   position: absolute;
   right: 12px;
@@ -272,64 +470,13 @@ export default {
   padding: 0;
 }
 
-.password-toggle:hover {
+.password-toggle:hover:not(:disabled) {
   color: #111;
 }
 
-.role-group {
-  margin-bottom: 16px;
-}
-
-.role-options {
-  display: flex;
-  gap: 24px;
-  margin-top: 8px;
-}
-
-.radio {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  color: #666;
-}
-
-.radio input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  cursor: pointer;
-}
-
-.checkbox {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  cursor: pointer;
-  color: #666;
-  font-size: 0.9rem;
-  margin-bottom: 24px;
-}
-
-.checkbox input {
-  width: 16px;
-  height: 16px;
-  margin-top: 3px;
-  flex-shrink: 0;
-}
-
-.checkbox a {
-  color: #111;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.checkbox a:hover {
-  color: #333;
-}
-
-.terms {
-  line-height: 1.5;
+.password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn {
@@ -381,24 +528,12 @@ export default {
   font-size: 0.95rem;
 }
 
-.link-button:hover {
+.link-button:hover:not(:disabled) {
   color: #333;
 }
 
-/* Стили для скролла */
-.modal::-webkit-scrollbar {
-  width: 4px;
-}
-
-.modal::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-.modal::-webkit-scrollbar-thumb {
-  background: #ddd;
-}
-
-.modal::-webkit-scrollbar-thumb:hover {
-  background: #999;
+.link-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

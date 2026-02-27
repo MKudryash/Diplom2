@@ -5,141 +5,168 @@
 
     <main class="teacher-main">
       <div class="container">
-        <div class="teacher-header">
-          <div>
-            <h1 class="teacher-title">Группы и студенты</h1>
-            <p class="teacher-subtitle">Управляйте учебными группами</p>
-          </div>
-          <button @click="createGroup" class="btn btn-primary">
-            + Создать группу
-          </button>
+        <!-- Состояние загрузки -->
+        <div v-if="loading" class="loading-state">
+          <div class="loader"></div>
+          <p>Загрузка данных...</p>
         </div>
 
-        <!-- Табы: Группы / Все студенты -->
-        <div class="groups-tabs">
-          <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'groups' }"
-              @click="activeTab = 'groups'"
-          >
-            Группы
-          </button>
-          <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'students' }"
-              @click="activeTab = 'students'"
-          >
-            Все студенты
-          </button>
+        <!-- Ошибка загрузки -->
+        <div v-else-if="error" class="error-state">
+          <p class="error-icon">❌</p>
+          <h3>Ошибка загрузки</h3>
+          <p>{{ error }}</p>
+          <button @click="loadData" class="btn btn-primary">Повторить</button>
         </div>
 
-        <!-- Вкладка с группами -->
-        <div v-if="activeTab === 'groups'" class="groups-tab">
-          <div class="groups-grid">
-            <div v-for="group in groups" :key="group.id" class="group-card">
-              <div class="group-header">
-                <h3 class="group-name">{{ group.name }}</h3>
-                <div class="group-actions">
-                  <button @click="editGroup(group.id)" class="icon-btn">✎</button>
-                  <button @click="deleteGroup(group.id)" class="icon-btn delete">✕</button>
-                </div>
-              </div>
-
-              <p class="group-description">{{ group.description }}</p>
-
-              <div class="group-stats">
-                <span class="stat">
-                  <strong>{{ group.students.length }}</strong> студентов
-                </span>
-                <span class="stat">
-                  <strong>{{ group.testsAssigned }}</strong> тестов
-                </span>
-              </div>
-
-              <div class="group-students">
-                <div v-for="student in group.students.slice(0, 3)" :key="student.id" class="student-chip">
-                  {{ student.name }}
-                </div>
-                <span v-if="group.students.length > 3" class="more-students">
-                  +{{ group.students.length - 3 }}
-                </span>
-              </div>
-
-              <div class="group-footer">
-                <button @click="assignTest(group.id)" class="btn btn-outline btn-sm">
-                  Назначить тест
-                </button>
-                <button @click="viewGroupStats(group.id)" class="btn btn-outline btn-sm">
-                  Статистика
-                </button>
-              </div>
+        <template v-else>
+          <div class="teacher-header">
+            <div>
+              <h1 class="teacher-title">Группы и студенты</h1>
+              <p class="teacher-subtitle">Управляйте учебными группами</p>
             </div>
+            <button @click="createGroup" class="btn btn-primary">
+              + Создать группу
+            </button>
           </div>
-        </div>
 
-        <!-- Вкладка со всеми студентами -->
-        <div v-if="activeTab === 'students'" class="students-tab">
-          <div class="students-filters">
-            <div class="search-wrapper">
-              <input
-                  type="text"
-                  v-model="studentSearch"
-                  placeholder="Поиск по имени или email..."
-                  class="search-input"
-              />
-              <span class="search-icon">🔍</span>
+          <!-- Табы: Группы / Все студенты -->
+          <div class="groups-tabs">
+            <button
+                class="tab-btn"
+                :class="{ active: activeTab === 'groups' }"
+                @click="activeTab = 'groups'"
+            >
+              Группы
+            </button>
+            <button
+                class="tab-btn"
+                :class="{ active: activeTab === 'students' }"
+                @click="activeTab = 'students'"
+            >
+              Все студенты
+            </button>
+          </div>
+
+          <!-- Вкладка с группами -->
+          <div v-if="activeTab === 'groups'" class="groups-tab">
+            <div v-if="groups.length === 0" class="empty-state">
+              <p class="empty-icon">👥</p>
+              <h3>Нет групп</h3>
+              <p>Создайте первую группу</p>
+              <button @click="createGroup" class="btn btn-primary">
+                Создать группу
+              </button>
             </div>
-
-            <select v-model="groupFilter" class="filter-select">
-              <option value="all">Все группы</option>
-              <option v-for="group in groups" :key="group.id" :value="group.id">
-                {{ group.name }}
-              </option>
-            </select>
-          </div>
-
-          <table class="students-table">
-            <thead>
-            <tr>
-              <th>Студент</th>
-              <th>Email</th>
-              <th>Группа</th>
-              <th>Тестов пройдено</th>
-              <th>Средний балл</th>
-              <th>Последняя активность</th>
-              <th></th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-for="student in filteredStudents" :key="student.id">
-              <td>
-                <div class="student-info">
-                  <div class="student-avatar">{{ student.initials }}</div>
-                  {{ student.name }}
+            <div v-else class="groups-grid">
+              <div v-for="group in groups" :key="group.id" class="group-card">
+                <div class="group-header">
+                  <h3 class="group-name">{{ group.name }}</h3>
+                  <div class="group-actions">
+                    <button @click="editGroup(group.id)" class="icon-btn" title="Редактировать">✎</button>
+                    <button @click="deleteGroup(group.id)" class="icon-btn delete" title="Удалить">✕</button>
+                  </div>
                 </div>
-              </td>
-              <td>{{ student.email }}</td>
-              <td>{{ student.group }}</td>
-              <td>{{ student.testsPassed }}</td>
-              <td>
-                  <span class="score-badge" :class="getScoreClass(student.avgScore)">
-                    {{ student.avgScore }}%
+
+                <p class="group-description">{{ group.description || 'Нет описания' }}</p>
+
+                <div class="group-stats">
+                  <span class="stat">
+                    <strong>{{ group.students?.length || 0 }}</strong> студентов
                   </span>
-              </td>
-              <td>{{ formatDate(student.lastActive) }}</td>
-              <td>
-                <button @click="viewStudentProfile(student.id)" class="btn-link-small">
-                  Профиль
-                </button>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
+                  <span class="stat">
+                    <strong>{{ group.testsAssigned || 0 }}</strong> тестов
+                  </span>
+                </div>
+
+                <div class="group-students">
+                  <div v-for="student in group.students?.slice(0, 3)" :key="student.id" class="student-chip">
+                    {{ student.name }}
+                  </div>
+                  <span v-if="group.students?.length > 3" class="more-students">
+                    +{{ group.students.length - 3 }}
+                  </span>
+                </div>
+
+                <div class="group-footer">
+                  <button @click="assignTest(group.id)" class="btn btn-outline btn-sm">
+                    Назначить тест
+                  </button>
+                  <button @click="viewGroupStats(group.id)" class="btn btn-outline btn-sm">
+                    Статистика
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Вкладка со всеми студентами -->
+          <div v-if="activeTab === 'students'" class="students-tab">
+            <div class="students-filters">
+              <div class="search-wrapper">
+                <input
+                    type="text"
+                    v-model="studentSearch"
+                    placeholder="Поиск по имени или email..."
+                    class="search-input"
+                />
+                <span class="search-icon">🔍</span>
+              </div>
+
+              <select v-model="groupFilter" class="filter-select">
+                <option value="all">Все группы</option>
+                <option v-for="group in groups" :key="group.id" :value="group.id">
+                  {{ group.name }}
+                </option>
+              </select>
+            </div>
+
+            <div v-if="filteredStudents.length === 0" class="empty-state">
+              <p>Студенты не найдены</p>
+            </div>
+            <table v-else class="students-table">
+              <thead>
+              <tr>
+                <th>Студент</th>
+                <th>Email</th>
+                <th>Группа</th>
+                <th>Тестов пройдено</th>
+                <th>Средний балл</th>
+                <th>Последняя активность</th>
+                <th></th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-for="student in filteredStudents" :key="student.id">
+                <td>
+                  <div class="student-info">
+                    <div class="student-avatar">{{ student.initials }}</div>
+                    {{ student.name }}
+                  </div>
+                </td>
+                <td>{{ student.email }}</td>
+                <td>{{ student.groupName || 'Без группы' }}</td>
+                <td>{{ student.testsPassed || 0 }}</td>
+                <td>
+                  <span class="score-badge" :class="getScoreClass(student.avgScore)">
+                    {{ student.avgScore || 0 }}%
+                  </span>
+                </td>
+                <td>{{ formatDate(student.lastActive) }}</td>
+                <td>
+                  <button @click="viewStudentProfile(student.id)" class="btn-link-small">
+                    Профиль
+                  </button>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
       </div>
     </main>
 
-    <!-- Модальное окно создания группы -->
+    <!-- Модальное окно создания/редактирования группы -->
     <div v-if="showGroupModal" class="modal-overlay" @click.self="showGroupModal = false">
       <div class="modal">
         <h2 class="modal-title">{{ editingGroup ? 'Редактировать группу' : 'Создать группу' }}</h2>
@@ -175,7 +202,10 @@
                   placeholder="Поиск студентов..."
                   class="form-input"
               />
-              <div class="students-list">
+              <div v-if="availableStudents.length === 0" class="empty-list">
+                Нет доступных студентов
+              </div>
+              <div v-else class="students-list">
                 <label v-for="student in availableStudents" :key="student.id" class="student-checkbox">
                   <input
                       type="checkbox"
@@ -189,7 +219,9 @@
           </div>
 
           <div class="modal-actions">
-            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <button type="submit" class="btn btn-primary" :disabled="saving">
+              {{ saving ? 'Сохранение...' : 'Сохранить' }}
+            </button>
             <button type="button" @click="showGroupModal = false" class="btn btn-outline">
               Отмена
             </button>
@@ -204,6 +236,7 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
 import AppNavigation from '../components/navigation'
 import AppFooter from '../components/footer'
 
@@ -218,58 +251,20 @@ export default {
       activeTab: 'groups',
       showGroupModal: false,
       editingGroup: false,
+      editingGroupId: null,
       studentSearch: '',
       groupFilter: 'all',
       studentSearchInput: '',
+      loading: true,
+      saving: false,
+      error: null,
 
-      groups: [
-        {
-          id: 1,
-          name: 'ПИ-201',
-          description: 'Программная инженерия, 2 курс',
-          students: [
-            { id: 1, name: 'Алексей Иванов', initials: 'АИ' },
-            { id: 2, name: 'Мария Петрова', initials: 'МП' },
-            { id: 3, name: 'Дмитрий Сидоров', initials: 'ДС' },
-            { id: 4, name: 'Анна Козлова', initials: 'АК' }
-          ],
-          testsAssigned: 5
-        },
-        {
-          id: 2,
-          name: 'ПИ-202',
-          description: 'Программная инженерия, 2 курс',
-          students: [
-            { id: 5, name: 'Игорь Смирнов', initials: 'ИС' },
-            { id: 6, name: 'Елена Васильева', initials: 'ЕВ' }
-          ],
-          testsAssigned: 3
-        },
-        {
-          id: 3,
-          name: 'ПИ-301',
-          description: 'Программная инженерия, 3 курс',
-          students: [
-            { id: 7, name: 'Сергей Николаев', initials: 'СН' },
-            { id: 8, name: 'Ольга Морозова', initials: 'ОМ' },
-            { id: 9, name: 'Павел Федоров', initials: 'ПФ' }
-          ],
-          testsAssigned: 7
-        }
-      ],
+      // Данные из Supabase
+      groups: [],
+      allStudents: [],
+      professors: [],
 
-      allStudents: [
-        { id: 1, name: 'Алексей Иванов', initials: 'АИ', email: 'alexey@example.com', group: 'ПИ-201', testsPassed: 24, avgScore: 78, lastActive: '2026-03-20' },
-        { id: 2, name: 'Мария Петрова', initials: 'МП', email: 'maria@example.com', group: 'ПИ-201', testsPassed: 32, avgScore: 92, lastActive: '2026-03-21' },
-        { id: 3, name: 'Дмитрий Сидоров', initials: 'ДС', email: 'dmitry@example.com', group: 'ПИ-201', testsPassed: 18, avgScore: 65, lastActive: '2026-03-19' },
-        { id: 4, name: 'Анна Козлова', initials: 'АК', email: 'anna@example.com', group: 'ПИ-201', testsPassed: 28, avgScore: 85, lastActive: '2026-03-20' },
-        { id: 5, name: 'Игорь Смирнов', initials: 'ИС', email: 'igor@example.com', group: 'ПИ-202', testsPassed: 15, avgScore: 72, lastActive: '2026-03-18' },
-        { id: 6, name: 'Елена Васильева', initials: 'ЕВ', email: 'elena@example.com', group: 'ПИ-202', testsPassed: 21, avgScore: 88, lastActive: '2026-03-21' },
-        { id: 7, name: 'Сергей Николаев', initials: 'СН', email: 'sergey@example.com', group: 'ПИ-301', testsPassed: 35, avgScore: 81, lastActive: '2026-03-20' },
-        { id: 8, name: 'Ольга Морозова', initials: 'ОМ', email: 'olga@example.com', group: 'ПИ-301', testsPassed: 42, avgScore: 94, lastActive: '2026-03-21' },
-        { id: 9, name: 'Павел Федоров', initials: 'ПФ', email: 'pavel@example.com', group: 'ПИ-301', testsPassed: 27, avgScore: 76, lastActive: '2026-03-19' }
-      ],
-
+      // Форма группы
       groupForm: {
         name: '',
         description: '',
@@ -292,7 +287,7 @@ export default {
       if (this.groupFilter !== 'all') {
         const group = this.groups.find(g => g.id === this.groupFilter)
         if (group) {
-          filtered = filtered.filter(s => s.group === group.name)
+          filtered = filtered.filter(s => s.groupId === group.id)
         }
       }
 
@@ -300,23 +295,190 @@ export default {
     },
 
     availableStudents() {
-      if (!this.studentSearchInput) return this.allStudents
+      let students = this.allStudents
 
-      const query = this.studentSearchInput.toLowerCase()
-      return this.allStudents.filter(s =>
-          s.name.toLowerCase().includes(query) ||
-          s.email.toLowerCase().includes(query)
-      )
+      if (this.studentSearchInput) {
+        const query = this.studentSearchInput.toLowerCase()
+        students = students.filter(s =>
+            s.name.toLowerCase().includes(query) ||
+            s.email.toLowerCase().includes(query)
+        )
+      }
+
+      // Сортируем: сначала не в группе, потом в группе
+      return students.sort((a, b) => {
+        if (a.groupId && !b.groupId) return 1
+        if (!a.groupId && b.groupId) return -1
+        return 0
+      })
     }
   },
+  async created() {
+    await this.loadData()
+  },
   methods: {
+    async loadData() {
+      this.loading = true
+      this.error = null
+
+      try {
+        // Получаем текущего пользователя (преподавателя)
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+        if (userError) throw userError
+        if (!user) {
+          this.$router.push('/login')
+          return
+        }
+
+        // Загружаем группы преподавателя
+        await this.loadGroups()
+
+        // Загружаем всех студентов
+        await this.loadStudents()
+
+      } catch (error) {
+        console.error('Error loading data:', error)
+        this.error = error.message || 'Не удалось загрузить данные'
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadGroups() {
+      try {
+        const { data: groupsData, error: groupsError } = await supabase
+            .from('groups')
+            .select(`
+              id,
+              name,
+              description,
+              created_at,
+              user_groups (
+                user_id,
+                profiles:user_id (
+                  id,
+                  first_name,
+                  last_name,
+                  email
+                )
+              )
+            `)
+            .order('created_at', { ascending: false })
+
+        if (groupsError) throw groupsError
+
+        // Форматируем группы
+        this.groups = (groupsData || []).map(group => {
+          const students = (group.user_groups || [])
+              .filter(ug => ug.profiles)
+              .map(ug => ({
+                id: ug.profiles.id,
+                name: `${ug.profiles.first_name || ''} ${ug.profiles.last_name || ''}`.trim() || 'Студент',
+                email: ug.profiles.email,
+                initials: this.getInitials(ug.profiles.first_name, ug.profiles.last_name)
+              }))
+
+          return {
+            id: group.id,
+            name: group.name,
+            description: group.description,
+            students,
+            testsAssigned: Math.floor(Math.random() * 10) + 1 // Заглушка, нужно будет добавить реальный подсчет
+          }
+        })
+
+      } catch (error) {
+        console.error('Error loading groups:', error)
+        this.groups = []
+      }
+    },
+
+    async loadStudents() {
+      try {
+        // Загружаем всех студентов (пользователей с ролью 'student')
+        const { data: studentsData, error: studentsError } = await supabase
+            .from('profiles')
+            .select(`
+              id,
+              first_name,
+              last_name,
+              email,
+              group_name,
+              user_groups (
+                group_id,
+                groups (
+                  id,
+                  name
+                )
+              )
+            `)
+            .eq('role', 'student')
+            .order('last_name', { ascending: true })
+
+        if (studentsError) throw studentsError
+
+        // Для каждого студента получаем статистику
+        this.allStudents = await Promise.all((studentsData || []).map(async (student) => {
+          // Получаем попытки студента
+          const { data: attempts, error: attemptsError } = await supabase
+              .from('attempts')
+              .select('score, completed_at')
+              .eq('user_id', student.id)
+              .eq('status', 'completed')
+              .order('completed_at', { ascending: false })
+
+          if (attemptsError) {
+            console.error('Error loading attempts:', attemptsError)
+          }
+
+          const testsPassed = attempts?.length || 0
+          const avgScore = testsPassed > 0
+              ? Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / testsPassed)
+              : 0
+
+          const lastActive = attempts?.[0]?.completed_at
+
+          // Определяем текущую группу студента
+          const currentGroup = student.user_groups?.[0]?.groups
+
+          return {
+            id: student.id,
+            name: `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Студент',
+            initials: this.getInitials(student.first_name, student.last_name),
+            email: student.email,
+            groupName: currentGroup?.name || student.group_name || 'Без группы',
+            groupId: currentGroup?.id || null,
+            testsPassed,
+            avgScore,
+            lastActive
+          }
+        }))
+
+      } catch (error) {
+        console.error('Error loading students:', error)
+        this.allStudents = []
+      }
+    },
+
+    getInitials(firstName, lastName) {
+      if (firstName && lastName) {
+        return (firstName[0] + lastName[0]).toUpperCase()
+      }
+      if (firstName) return firstName[0].toUpperCase()
+      if (lastName) return lastName[0].toUpperCase()
+      return '?'
+    },
+
     createGroup() {
       this.editingGroup = false
+      this.editingGroupId = null
       this.groupForm = {
         name: '',
         description: '',
         students: []
       }
+      this.studentSearchInput = ''
       this.showGroupModal = true
     },
 
@@ -324,24 +486,132 @@ export default {
       const group = this.groups.find(g => g.id === id)
       if (group) {
         this.editingGroup = true
+        this.editingGroupId = id
         this.groupForm = {
           name: group.name,
-          description: group.description,
+          description: group.description || '',
           students: group.students.map(s => s.id)
         }
         this.showGroupModal = true
       }
     },
 
-    deleteGroup(id) {
-      if (confirm('Удалить группу?')) {
-        console.log('Delete group:', id)
+    async deleteGroup(id) {
+      if (!confirm('Удалить группу? Все студенты будут удалены из группы.')) return
+
+      try {
+        // Удаляем связи студентов с группой
+        const { error: userGroupsError } = await supabase
+            .from('user_groups')
+            .delete()
+            .eq('group_id', id)
+
+        if (userGroupsError) throw userGroupsError
+
+        // Удаляем саму группу
+        const { error: groupError } = await supabase
+            .from('groups')
+            .delete()
+            .eq('id', id)
+
+        if (groupError) throw groupError
+
+        // Обновляем список групп
+        await this.loadGroups()
+
+      } catch (error) {
+        console.error('Error deleting group:', error)
+        alert('Ошибка при удалении группы')
       }
     },
 
-    saveGroup() {
-      console.log('Save group:', this.groupForm)
-      this.showGroupModal = false
+    async saveGroup() {
+      if (!this.groupForm.name) {
+        alert('Введите название группы')
+        return
+      }
+
+      this.saving = true
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (this.editingGroup) {
+          // Обновляем существующую группу
+          const { error: groupError } = await supabase
+              .from('groups')
+              .update({
+                name: this.groupForm.name,
+                description: this.groupForm.description,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', this.editingGroupId)
+
+          if (groupError) throw groupError
+
+          // Удаляем старые связи
+          const { error: deleteError } = await supabase
+              .from('user_groups')
+              .delete()
+              .eq('group_id', this.editingGroupId)
+
+          if (deleteError) throw deleteError
+
+          // Добавляем новые связи
+          if (this.groupForm.students.length > 0) {
+            const userGroups = this.groupForm.students.map(studentId => ({
+              user_id: studentId,
+              group_id: this.editingGroupId
+            }))
+
+            const { error: insertError } = await supabase
+                .from('user_groups')
+                .insert(userGroups)
+
+            if (insertError) throw insertError
+          }
+
+        } else {
+          // Создаем новую группу
+          const { data: newGroup, error: groupError } = await supabase
+              .from('groups')
+              .insert([{
+                name: this.groupForm.name,
+                description: this.groupForm.description,
+                created_by: user.id
+              }])
+              .select()
+              .single()
+
+          if (groupError) throw groupError
+
+          // Добавляем студентов в группу
+          if (this.groupForm.students.length > 0) {
+            const userGroups = this.groupForm.students.map(studentId => ({
+              user_id: studentId,
+              group_id: newGroup.id
+            }))
+
+            const { error: insertError } = await supabase
+                .from('user_groups')
+                .insert(userGroups)
+
+            if (insertError) throw insertError
+          }
+        }
+
+        // Обновляем данные
+        await this.loadGroups()
+        await this.loadStudents()
+
+        this.showGroupModal = false
+
+      } catch (error) {
+        console.error('Error saving group:', error)
+        alert('Ошибка при сохранении группы')
+      } finally {
+        this.saving = false
+      }
     },
 
     assignTest(groupId) {
@@ -353,7 +623,7 @@ export default {
     },
 
     viewStudentProfile(studentId) {
-      this.$router.push(`/student/${studentId}`)
+      this.$router.push(`/profile/${studentId}`)
     },
 
     getScoreClass(score) {
@@ -362,15 +632,82 @@ export default {
       return 'bad'
     },
 
-    formatDate(date) {
-      const d = new Date(date)
-      return d.toLocaleDateString('ru-RU')
+    formatDate(dateString) {
+      if (!dateString) return '—'
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
+
+      if (diffDays === 0) return 'Сегодня'
+      if (diffDays === 1) return 'Вчера'
+      if (diffDays < 7) return `${diffDays} дня назад`
+      return date.toLocaleDateString('ru-RU')
     }
   }
 }
 </script>
 
 <style scoped>
+/* Добавляем стили для состояний загрузки и ошибок */
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  padding: 40px;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #eee;
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+
+.error-icon,
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.error-state h3,
+.empty-state h3 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+
+.error-state p,
+.empty-state p {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 0;
+  color: #999;
+}
+
+.empty-list {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  background: #fafafa;
+  border: 1px solid #eee;
+}
+
+/* Остальные стили остаются без изменений */
 .teacher-groups {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.6;
@@ -735,9 +1072,14 @@ export default {
   border-color: #111;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #333;
   border-color: #333;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-outline {

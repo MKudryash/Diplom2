@@ -656,11 +656,6 @@ export default {
 
     async startTest(test) {
       // Проверяем, авторизован ли пользователь
-      const {data, error} = await supabase.auth.signInWithPassword({
-        email: 'student1@example.com',
-        password: '1',
-      })
-      console.log(data)
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {

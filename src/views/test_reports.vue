@@ -384,7 +384,6 @@ export default {
               explanation,
               hint,
               difficulty,
-
               options (*)
             `)
             .eq('test_id', this.testId)

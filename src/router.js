@@ -15,6 +15,7 @@ import test_constructor from "@/views/test_constructor.vue";
 import teacher_groups from "@/views/teacher_groups.vue";
 import test_reports from "@/views/test_reports.vue";
 import teacher_layout from "@/views/teacher_layout.vue";
+import teacher_profile from "@/views/teacher_profile.vue";
 
 Vue.use(Router)
 Vue.use(Meta)
@@ -57,9 +58,15 @@ export default new Router({
           component: student_profile,
       },
       {
+          name: 'TeacherProfile',
+          path: '/teacher/profile',
+          component: teacher_profile,
+      },
+      {
           path: '/teacher',
           component:teacher_layout,
           children: [
+
               {
                   name: 'TeacherTests',
                   path: 'tests',

@@ -1,5 +1,5 @@
 <template>
-  <div class="student-profile">
+  <div class="teacher-profile">
     <!-- Навигация -->
     <app-navigation></app-navigation>
 
@@ -31,8 +31,8 @@
         <template v-else>
           <!-- Заголовок -->
           <div class="profile-header">
-            <h1 class="profile-title">Профиль студента</h1>
-            <p class="profile-subtitle">Управляйте своими данными и просматривайте статистику</p>
+            <h1 class="profile-title">Личный кабинет преподавателя</h1>
+            <p class="profile-subtitle">Управляйте своими данными и отслеживайте статистику</p>
           </div>
 
           <!-- Основной профиль -->
@@ -54,30 +54,37 @@
                     <span class="edit-icon">{{ uploading ? '⋯' : '✎' }}</span>
                   </button>
                 </div>
-                <h2 class="student-name">{{ profileFullName }}</h2>
-                <p class="student-email">{{ user.email }}</p>
-                <p class="student-group">{{ profile.group_name || 'Без группы' }}</p>
-                <p v-if="profile.bio" class="student-bio">{{ profile.bio }}</p>
+                <h2 class="profile-name">{{ profileFullName }}</h2>
+                <p class="profile-email">{{ user.email }}</p>
+                <p class="profile-role">{{ roleLabel }}</p>
+                <p v-if="profile.bio" class="profile-bio">{{ profile.bio }}</p>
               </div>
 
               <div class="profile-stats-mini">
                 <div class="mini-stat">
-                  <span class="mini-stat-value">{{ stats.testsPassed }}</span>
-                  <span class="mini-stat-label">Тестов пройдено</span>
+                  <span class="mini-stat-value">{{ stats.totalTests }}</span>
+                  <span class="mini-stat-label">Всего тестов</span>
                 </div>
                 <div class="mini-stat">
-                  <span class="mini-stat-value">{{ stats.averageScore }}%</span>
-                  <span class="mini-stat-label">Средний результат</span>
+                  <span class="mini-stat-value">{{ stats.publishedTests }}</span>
+                  <span class="mini-stat-label">Опубликовано</span>
                 </div>
                 <div class="mini-stat">
-                  <span class="mini-stat-value">{{ stats.daysActive }}</span>
-                  <span class="mini-stat-label">Дней на платформе</span>
+                  <span class="mini-stat-value">{{ stats.totalStudents }}</span>
+                  <span class="mini-stat-label">Студентов</span>
+                </div>
+                <div class="mini-stat">
+                  <span class="mini-stat-value">{{ stats.totalAttempts }}</span>
+                  <span class="mini-stat-label">Прохождений</span>
                 </div>
               </div>
 
               <div class="profile-actions">
                 <button @click="editProfile" class="btn btn-outline btn-block">
                   Редактировать профиль
+                </button>
+                <button @click="goToTests" class="btn btn-primary btn-block">
+                  📋 Управление тестами
                 </button>
               </div>
             </div>
@@ -94,17 +101,17 @@
                 </button>
                 <button
                     class="tab-btn"
-                    :class="{ active: activeTab === 'progress' }"
-                    @click="activeTab = 'progress'"
+                    :class="{ active: activeTab === 'tests' }"
+                    @click="activeTab = 'tests'"
                 >
-                  Прогресс
+                  Мои тесты
                 </button>
                 <button
                     class="tab-btn"
-                    :class="{ active: activeTab === 'achievements' }"
-                    @click="activeTab = 'achievements'"
+                    :class="{ active: activeTab === 'students' }"
+                    @click="activeTab = 'students'"
                 >
-                  Достижения
+                  Студенты
                 </button>
                 <button
                     class="tab-btn"
@@ -118,107 +125,141 @@
               <div class="tab-content">
                 <!-- Вкладка: Обзор -->
                 <div v-if="activeTab === 'overview'" class="overview-tab">
-                  <div class="recent-activity">
-                    <h3>Недавняя активность</h3>
-                    <div v-if="recentActivity.length === 0" class="empty-state">
-                      <p>Нет недавней активности</p>
+                  <!-- Быстрая статистика -->
+                  <div class="quick-stats">
+                    <div class="quick-stat-card">
+                      <span class="quick-stat-value">{{ stats.testsThisMonth }}</span>
+                      <span class="quick-stat-label">Тестов за месяц</span>
                     </div>
-                    <div v-else class="activity-list">
-                      <div v-for="(activity, index) in recentActivity" :key="index" class="activity-item">
-                        <span class="activity-icon">{{ activity.icon }}</span>
-                        <div class="activity-details">
-                          <p class="activity-title">{{ activity.title }}</p>
-                          <p class="activity-meta">{{ activity.date }} • {{ activity.score }}</p>
+                    <div class="quick-stat-card">
+                      <span class="quick-stat-value">{{ stats.avgScore }}%</span>
+                      <span class="quick-stat-label">Средний балл</span>
+                    </div>
+                    <div class="quick-stat-card">
+                      <span class="quick-stat-value">{{ stats.passRate }}%</span>
+                      <span class="quick-stat-label">Успеваемость</span>
+                    </div>
+                  </div>
+
+                  <!-- График активности -->
+                  <div class="chart-section">
+                    <h3>Активность за последние 7 дней</h3>
+                    <div class="chart-container">
+                      <div v-if="dailyStats.length === 0" class="no-data-message">
+                        Нет данных за этот период
+                      </div>
+                      <div v-else class="mini-chart">
+                        <div v-for="(day, index) in dailyStats" :key="index" class="chart-column">
+                          <div class="chart-bar" :style="{ height: day.percentage + '%' }"></div>
+                          <span class="chart-label">{{ day.date }}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div class="upcoming-tests">
-                    <h3>Предстоящие тесты</h3>
-                    <div v-if="upcomingTests.length === 0" class="empty-state">
-                      <p>Нет назначенных тестов</p>
+                  <!-- Последние тесты -->
+                  <div class="recent-tests">
+                    <div class="section-header">
+                      <h3>Последние тесты</h3>
+                      <button @click="goToTests" class="btn-link">Все тесты →</button>
                     </div>
-                    <div v-else class="upcoming-list">
-                      <div v-for="test in upcomingTests" :key="test.id" class="upcoming-item">
-                        <span class="upcoming-icon">📅</span>
-                        <div class="upcoming-details">
-                          <p class="upcoming-title">{{ test.title }}</p>
-                          <p class="upcoming-meta">Дедлайн: {{ formatDate(test.deadline) }}</p>
+                    <div v-if="recentTests.length === 0" class="empty-state">
+                      <p>У вас пока нет созданных тестов</p>
+                      <button @click="createNewTest" class="btn btn-primary btn-sm">
+                        Создать тест
+                      </button>
+                    </div>
+                    <div v-else class="tests-list">
+                      <div v-for="test in recentTests" :key="test.id" class="test-item">
+                        <div class="test-info">
+                          <h4>{{ test.title }}</h4>
+                          <p>{{ test.attempts }} прохождений • {{ test.questions }} вопросов</p>
                         </div>
-                        <button @click="startTest(test.id)" class="btn btn-sm btn-primary">
-                          Начать
-                        </button>
+                        <div class="test-actions">
+                          <span class="test-status" :class="test.status">
+                            {{ statusLabel(test.status) }}
+                          </span>
+                          <button @click="editTest(test.id)" class="btn-link-small">
+                            Подробнее
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Активные студенты -->
+                  <div class="active-students">
+                    <h3>Активные студенты</h3>
+                    <div v-if="activeStudents.length === 0" class="empty-state">
+                      <p>Нет активных студентов</p>
+                    </div>
+                    <div v-else class="students-list">
+                      <div v-for="student in activeStudents" :key="student.id" class="student-item">
+                        <div class="student-avatar-small">{{ student.initials }}</div>
+                        <div class="student-info">
+                          <span class="student-name">{{ student.name }}</span>
+                          <span class="student-group">{{ student.group }}</span>
+                        </div>
+                        <span class="student-activity">{{ student.lastActive }}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Вкладка: Прогресс -->
-                <div v-if="activeTab === 'progress'" class="progress-tab">
-                  <div class="progress-chart">
-                    <h3>Динамика результатов</h3>
-                    <div class="chart-placeholder">
-                      <div v-if="progressData.length === 0" class="no-data-message">
-                        Нет данных для графика
-                      </div>
-                      <div v-else class="mini-chart">
-                        <div v-for="(point, index) in progressData" :key="index"
-                             class="chart-bar"
-                             :style="{ height: point.value + '%' }">
-                          <span class="bar-label">{{ point.label }}</span>
-                        </div>
-                      </div>
-                    </div>
+                <!-- Вкладка: Мои тесты -->
+                <div v-if="activeTab === 'tests'" class="tests-tab">
+                  <div class="tab-header">
+                    <h3>Мои тесты</h3>
+                    <button @click="createNewTest" class="btn btn-primary btn-sm">
+                      + Новый тест
+                    </button>
                   </div>
 
-                  <div class="category-progress">
-                    <h3>Прогресс по категориям</h3>
-                    <div v-if="categoryProgress.length === 0" class="empty-state">
-                      <p>Нет данных по категориям</p>
-                    </div>
-                    <div v-else class="category-list">
-                      <div v-for="cat in categoryProgress" :key="cat.name" class="category-item">
-                        <div class="category-header">
-                          <span class="category-name">{{ cat.name }}</span>
-                          <span class="category-score">{{ cat.correct }}/{{ cat.total }}</span>
-                        </div>
-                        <div class="progress-bar">
-                          <div class="progress-fill" :style="{ width: cat.percentage + '%' }"></div>
-                        </div>
-                      </div>
-                    </div>
+                  <div class="tests-filters">
+                    <input
+                        type="text"
+                        v-model="testSearch"
+                        placeholder="Поиск по названию..."
+                        class="search-input"
+                    />
+                    <select v-model="testStatusFilter" class="filter-select">
+                      <option value="all">Все статусы</option>
+                      <option value="published">Опубликовано</option>
+                      <option value="draft">Черновики</option>
+                      <option value="archived">В архиве</option>
+                    </select>
                   </div>
 
-                  <div class="recent-results">
-                    <h3>Последние результаты</h3>
-                    <div v-if="recentResults.length === 0" class="empty-state">
-                      <p>Нет результатов</p>
-                    </div>
-                    <table v-else class="results-table">
+                  <div v-if="filteredTests.length === 0" class="empty-state">
+                    <p>Тесты не найдены</p>
+                  </div>
+                  <div v-else class="tests-table">
+                    <table>
                       <thead>
                       <tr>
-                        <th>Тест</th>
-                        <th>Дата</th>
-                        <th>Результат</th>
+                        <th>Название</th>
+                        <th>Вопросов</th>
+                        <th>Прохождений</th>
+                        <th>Средний балл</th>
+                        <th>Статус</th>
                         <th></th>
                       </tr>
                       </thead>
                       <tbody>
-                      <tr v-for="result in recentResults" :key="result.id">
-                        <td>{{ result.title }}</td>
-                        <td>{{ formatDate(result.date) }}</td>
+                      <tr v-for="test in filteredTests" :key="test.id">
+                        <td>{{ test.title }}</td>
+                        <td>{{ test.questions }}</td>
+                        <td>{{ test.attempts }}</td>
+                        <td>{{ test.avgScore }}%</td>
                         <td>
-                          <span class="result-badge" :class="{
-                            'good': result.score >= 80,
-                            'medium': result.score >= 60 && result.score < 80,
-                            'bad': result.score < 60
-                          }">
-                            {{ result.score }}%
-                          </span>
+                            <span class="test-status" :class="test.status">
+                              {{ statusLabel(test.status) }}
+                            </span>
                         </td>
                         <td>
-                          <button @click="viewResult(result.id)" class="btn-link-small">Подробнее</button>
+                          <button @click="editTest(test.id)" class="btn-link-small">
+                            Отчеты
+                          </button>
                         </td>
                       </tr>
                       </tbody>
@@ -226,27 +267,50 @@
                   </div>
                 </div>
 
-                <!-- Вкладка: Достижения -->
-                <div v-if="activeTab === 'achievements'" class="achievements-tab">
-                  <div v-if="achievements.length === 0" class="empty-state">
-                    <p>Нет достижений</p>
+                <!-- Вкладка: Студенты -->
+                <div v-if="activeTab === 'students'" class="students-tab">
+                  <h3>Мои студенты</h3>
+
+                  <div class="students-filters">
+                    <input
+                        type="text"
+                        v-model="studentSearch"
+                        placeholder="Поиск по имени или группе..."
+                        class="search-input"
+                    />
+                    <select v-model="groupFilter" class="filter-select">
+                      <option value="all">Все группы</option>
+                      <option v-for="group in uniqueGroups" :key="group" :value="group">
+                        {{ group }}
+                      </option>
+                    </select>
                   </div>
-                  <div v-else class="achievements-grid">
-                    <div v-for="ach in achievements" :key="ach.id" class="achievement-card" :class="{ unlocked: ach.unlocked }">
-                      <div class="achievement-icon">{{ ach.icon }}</div>
-                      <div class="achievement-info">
-                        <h4>{{ ach.title }}</h4>
-                        <p>{{ ach.description }}</p>
+
+                  <div v-if="filteredStudents.length === 0" class="empty-state">
+                    <p>Студенты не найдены</p>
+                  </div>
+                  <div v-else class="students-grid">
+                    <div v-for="student in filteredStudents" :key="student.id" class="student-card">
+                      <div class="student-avatar">{{ student.initials }}</div>
+                      <div class="student-card-info">
+                        <h4>{{ student.name }}</h4>
+                        <p>{{ student.group }}</p>
+                        <div class="student-stats">
+                          <span>📊 {{ student.testsPassed }} тестов</span>
+                          <span>⭐ {{ student.avgScore }}%</span>
+                        </div>
                       </div>
-                      <div v-if="ach.unlocked" class="achievement-check">✓</div>
-                      <div v-else class="achievement-lock">🔒</div>
+                      <button @click="viewStudentProfile(student.id)" class="btn-link-small">
+                        Профиль
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <!-- Вкладка: Настройки -->
+                <!-- Вкладка: Настройки (аналогично студенческой, но с преподавательскими опциями) -->
                 <div v-if="activeTab === 'settings'" class="settings-tab">
                   <form @submit.prevent="saveSettings" class="settings-form">
+                    <!-- Основная информация -->
                     <div class="settings-section">
                       <h3>Основная информация</h3>
 
@@ -281,16 +345,6 @@
                       </div>
 
                       <div class="form-group">
-                        <label for="group_name">Группа</label>
-                        <input
-                            type="text"
-                            id="group_name"
-                            v-model="settingsForm.group_name"
-                            class="form-input"
-                        />
-                      </div>
-
-                      <div class="form-group">
                         <label for="bio">О себе</label>
                         <textarea
                             id="bio"
@@ -301,17 +355,18 @@
                       </div>
                     </div>
 
+                    <!-- Уведомления -->
                     <div class="settings-section">
                       <h3>Уведомления</h3>
 
                       <label class="checkbox">
                         <input type="checkbox" v-model="settingsForm.notifications.email" />
-                        <span>Получать уведомления о новых тестах по email</span>
+                        <span>Получать уведомления о новых прохождениях</span>
                       </label>
 
                       <label class="checkbox">
                         <input type="checkbox" v-model="settingsForm.notifications.results" />
-                        <span>Уведомлять о результатах тестов</span>
+                        <span>Уведомлять о результатах студентов</span>
                       </label>
 
                       <label class="checkbox">
@@ -320,20 +375,7 @@
                       </label>
                     </div>
 
-                    <div class="settings-section">
-                      <h3>Конфиденциальность</h3>
-
-                      <label class="checkbox">
-                        <input type="checkbox" v-model="settingsForm.privacy.showProgress" />
-                        <span>Показывать мой прогресс другим студентам группы</span>
-                      </label>
-
-                      <label class="checkbox">
-                        <input type="checkbox" v-model="settingsForm.privacy.showAchievements" />
-                        <span>Показывать мои достижения</span>
-                      </label>
-                    </div>
-
+                    <!-- Сменить пароль -->
                     <div class="settings-section">
                       <h3>Сменить пароль</h3>
 
@@ -407,11 +449,6 @@
           </div>
 
           <div class="form-group">
-            <label for="edit-group_name">Группа</label>
-            <input type="text" id="edit-group_name" v-model="editForm.group_name" class="form-input" />
-          </div>
-
-          <div class="form-group">
             <label for="edit-bio">О себе</label>
             <textarea id="edit-bio" v-model="editForm.bio" rows="4" class="form-input"></textarea>
           </div>
@@ -435,70 +472,71 @@ import AppNavigation from '../components/navigation'
 import AppFooter from '../components/footer'
 
 export default {
-  name: 'StudentProfile',
+  name: 'TeacherProfile',
   components: {
     AppNavigation,
     AppFooter,
   },
   data() {
     return {
-      activeTab: 'overview',
-      showEditModal: false,
       loading: true,
       uploading: false,
       error: null,
+      activeTab: 'overview',
+      showEditModal: false,
 
+      // Пользователь
       user: null,
       profile: {},
 
-      // Статистика
-      stats: {
-        testsPassed: 0,
-        averageScore: 0,
-        daysActive: 0
-      },
+      // Поиск и фильтры
+      testSearch: '',
+      testStatusFilter: 'all',
+      studentSearch: '',
+      groupFilter: 'all',
 
-      // Данные для вкладок
-      recentActivity: [],
-      upcomingTests: [],
-      progressData: [],
-      categoryProgress: [],
-      recentResults: [],
-      achievements: [],
-
-      // Форма редактирования
+      // Формы
       editForm: {
         first_name: '',
         last_name: '',
         patronymic: '',
-        group_name: '',
         bio: ''
       },
 
-      // Настройки
       settingsForm: {
         first_name: '',
         last_name: '',
         patronymic: '',
-        group_name: '',
         bio: '',
         notifications: {
           email: true,
           results: true,
           reminders: false
-        },
-        privacy: {
-          showProgress: true,
-          showAchievements: false
         }
       },
 
-      // Данные для смены пароля
       passwordData: {
         current: '',
         new: '',
         confirm: ''
-      }
+      },
+
+      // Статистика
+      stats: {
+        totalTests: 0,
+        publishedTests: 0,
+        totalStudents: 0,
+        totalAttempts: 0,
+        testsThisMonth: 0,
+        avgScore: 0,
+        passRate: 0
+      },
+
+      dailyStats: [],
+      recentTests: [],
+      activeStudents: [],
+      allTests: [],
+      allStudents: []
     }
   },
   computed: {
@@ -507,14 +545,57 @@ export default {
       if (this.profile.first_name) parts.push(this.profile.first_name)
       if (this.profile.last_name) parts.push(this.profile.last_name)
       if (this.profile.patronymic) parts.push(this.profile.patronymic)
-      return parts.join(' ') || 'Студент'
+      return parts.join(' ') || 'Преподаватель'
     },
 
     userInitials() {
       if (this.profile.first_name && this.profile.last_name) {
         return (this.profile.first_name[0] + this.profile.last_name[0]).toUpperCase()
       }
-      return this.user?.email?.[0]?.toUpperCase() || '?'
+      return this.user?.email?.[0]?.toUpperCase() || 'П'
+    },
+
+    roleLabel() {
+      if (this.profile.role === 'admin') return 'Администратор'
+      return 'Преподаватель'
+    },
+
+    filteredTests() {
+      let filtered = this.allTests
+
+      if (this.testSearch) {
+        const query = this.testSearch.toLowerCase()
+        filtered = filtered.filter(t => t.title.toLowerCase().includes(query))
+      }
+
+      if (this.testStatusFilter !== 'all') {
+        filtered = filtered.filter(t => t.status === this.testStatusFilter)
+      }
+
+      return filtered
+    },
+
+    uniqueGroups() {
+      const groups = new Set(this.allStudents.map(s => s.group).filter(Boolean))
+      return Array.from(groups).sort()
+    },
+
+    filteredStudents() {
+      let filtered = this.allStudents
+
+      if (this.studentSearch) {
+        const query = this.studentSearch.toLowerCase()
+        filtered = filtered.filter(s =>
+            s.name.toLowerCase().includes(query) ||
+            s.group?.toLowerCase().includes(query)
+        )
+      }
+
+      if (this.groupFilter !== 'all') {
+        filtered = filtered.filter(s => s.group === this.groupFilter)
+      }
+
+      return filtered
     }
   },
   async created() {
@@ -522,12 +603,8 @@ export default {
     if (this.user) {
       await this.loadProfile()
       await this.loadStats()
-      await this.loadRecentActivity()
-      await this.loadUpcomingTests()
-      await this.loadProgressData()
-      await this.loadCategoryProgress()
-      await this.loadRecentResults()
-      await this.loadAchievements()
+      await this.loadTests()
+      await this.loadStudents()
     }
     this.loading = false
   },
@@ -558,7 +635,6 @@ export default {
 
         // Инициализируем формы
         this.initForms()
-
       } catch (error) {
         console.error('Error loading profile:', error)
         this.error = 'Не удалось загрузить профиль'
@@ -570,7 +646,6 @@ export default {
         first_name: this.profile.first_name || '',
         last_name: this.profile.last_name || '',
         patronymic: this.profile.patronymic || '',
-        group_name: this.profile.group_name || '',
         bio: this.profile.bio || ''
       }
 
@@ -578,16 +653,11 @@ export default {
         first_name: this.profile.first_name || '',
         last_name: this.profile.last_name || '',
         patronymic: this.profile.patronymic || '',
-        group_name: this.profile.group_name || '',
         bio: this.profile.bio || '',
         notifications: {
           email: true,
           results: true,
           reminders: false
-        },
-        privacy: {
-          showProgress: true,
-          showAchievements: false
         }
       }
     },
@@ -596,232 +666,224 @@ export default {
       if (!this.user) return
 
       try {
-        // Получаем все завершенные попытки
-        const { data: attempts, error } = await supabase
-            .from('attempts')
-            .select('score, created_at')
-            .eq('user_id', this.user.id)
-            .eq('status', 'completed')
-            .order('created_at', { ascending: true })
+        // Получаем все тесты преподавателя
+        const { data: tests, error: testsError } = await supabase
+            .from('tests')
+            .select('id, status, created_at')
+            .eq('created_by', this.user.id)
 
-        if (error) throw error
+        if (testsError) throw testsError
 
-        const testsPassed = attempts?.length || 0
-        const averageScore = testsPassed > 0
-            ? Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / testsPassed)
-            : 0
+        const totalTests = tests?.length || 0
+        const publishedTests = tests?.filter(t => t.status === 'published').length || 0
 
-        // Вычисляем количество дней с первой активности
-        let daysActive = 0
-        if (attempts && attempts.length > 0) {
-          const firstAttempt = new Date(attempts[0].created_at)
-          const now = new Date()
-          daysActive = Math.floor((now - firstAttempt) / (1000 * 60 * 60 * 24))
+        // Получаем попытки по всем тестам
+        const testIds = tests?.map(t => t.id) || []
+
+        let totalAttempts = 0
+        let totalScore = 0
+        let passedCount = 0
+
+        if (testIds.length > 0) {
+          const { data: attempts, error: attemptsError } = await supabase
+              .from('attempts')
+              .select('score, status')
+              .in('test_id', testIds)
+              .eq('status', 'completed')
+
+          if (attemptsError) throw attemptsError
+
+          totalAttempts = attempts?.length || 0
+          totalScore = attempts?.reduce((sum, a) => sum + (a.score || 0), 0) || 0
+          passedCount = attempts?.filter(a => a.score >= 70).length || 0
         }
+
+        // Получаем количество студентов (уникальных пользователей, проходивших тесты)
+        let totalStudents = 0
+        if (testIds.length > 0) {
+          const { data: students, error: studentsError } = await supabase
+              .from('attempts')
+              .select('user_id')
+              .in('test_id', testIds)
+              .not('user_id', 'is', null)
+
+          if (studentsError) throw studentsError
+
+          const uniqueStudents = new Set(students?.map(s => s.user_id) || [])
+          totalStudents = uniqueStudents.size
+        }
+
+        // Тесты за последний месяц
+        const oneMonthAgo = new Date()
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+
+        const testsThisMonth = tests?.filter(t => new Date(t.created_at) > oneMonthAgo).length || 0
 
         this.stats = {
-          testsPassed,
-          averageScore,
-          daysActive
+          totalTests,
+          publishedTests,
+          totalStudents,
+          totalAttempts,
+          testsThisMonth,
+          avgScore: totalAttempts > 0 ? Math.round(totalScore / totalAttempts) : 0,
+          passRate: totalAttempts > 0 ? Math.round((passedCount / totalAttempts) * 100) : 0
         }
+
+        // Генерируем дневную статистику
+        this.generateDailyStats(tests || [])
 
       } catch (error) {
         console.error('Error loading stats:', error)
       }
     },
 
-    async loadRecentActivity() {
+    generateDailyStats(tests) {
+      const last7Days = []
+      const today = new Date()
+
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today)
+        date.setDate(date.getDate() - i)
+        const dateStr = date.toISOString().split('T')[0]
+
+        const dayTests = tests.filter(t =>
+            t.created_at && t.created_at.startsWith(dateStr)
+        )
+
+        const max = Math.max(tests.length, 1)
+        const percentage = dayTests.length > 0
+            ? Math.round((dayTests.length / max) * 100)
+            : 0
+
+        last7Days.push({
+          date: date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+          count: dayTests.length,
+          percentage: Math.min(percentage, 100)
+        })
+      }
+
+      this.dailyStats = last7Days
+    },
+
+    async loadTests() {
       if (!this.user) return
 
       try {
-        const { data: attempts, error } = await supabase
-            .from('attempts')
+        const { data: tests, error } = await supabase
+            .from('tests')
             .select(`
-              score,
-              completed_at,
-              tests (
-                title
-              )
+              *,
+              questions:questions(count)
             `)
-            .eq('user_id', this.user.id)
-            .eq('status', 'completed')
-            .order('completed_at', { ascending: false })
-            .limit(5)
+            .eq('created_by', this.user.id)
+            .order('created_at', { ascending: false })
+            .limit(10)
 
         if (error) throw error
 
-        this.recentActivity = (attempts || []).map(a => ({
-          icon: '📊',
-          title: a.tests?.title || 'Тест',
-          date: this.formatRelativeDate(a.completed_at),
-          score: `${a.score || 0}%`
-        }))
+        console.log('test result:', tests)
+
+        this.allTests = tests?.map(t => ({
+          ...t,
+          questions: t.questions?.[0]?.count || 0,
+          attempts: Math.floor(Math.random() * 50) + 10, // Заглушка, нужно будет добавить реальный подсчет
+          avgScore: Math.floor(Math.random() * 30) + 60 // Заглушка
+        })) || []
+
+        this.recentTests = this.allTests.slice(0, 5)
 
       } catch (error) {
-        console.error('Error loading recent activity:', error)
-        this.recentActivity = []
+        console.error('Error loading tests:', error)
+        this.allTests = []
+        this.recentTests = []
       }
     },
 
-    async loadUpcomingTests() {
+    async loadStudents() {
       if (!this.user) return
 
       try {
-        // Получаем группы студента
-        const { data: userGroups, error: groupsError } = await supabase
-            .from('user_groups')
-            .select('group_id')
-            .eq('user_id', this.user.id)
+        // Получаем всех студентов, проходивших тесты преподавателя
+        const { data: tests } = await supabase
+            .from('tests')
+            .select('id')
+            .eq('created_by', this.user.id)
 
-        if (groupsError) throw groupsError
+        const testIds = tests?.map(t => t.id) || []
 
-        const groupIds = userGroups?.map(ug => ug.group_id) || []
-
-        if (groupIds.length === 0) {
-          this.upcomingTests = []
+        if (testIds.length === 0) {
+          this.allStudents = []
+          this.activeStudents = []
           return
         }
 
-        // Получаем назначенные тесты для этих групп
-        const { data: assignments, error: assignmentsError } = await supabase
-            .from('test_assignments')
-            .select(`
-              test_id,
-              deadline,
-              tests (
-                id,
-                title
-              )
-            `)
-            .in('group_id', groupIds)
-            .gt('deadline', new Date().toISOString())
-            .order('deadline', { ascending: true })
-            .limit(5)
-
-        if (assignmentsError) throw assignmentsError
-
-        this.upcomingTests = (assignments || []).map(a => ({
-          id: a.tests?.id,
-          title: a.tests?.title || 'Тест',
-          deadline: a.deadline
-        }))
-
-      } catch (error) {
-        console.error('Error loading upcoming tests:', error)
-        this.upcomingTests = []
-      }
-    },
-
-    loadProgressData() {
-      // Заглушка для графика прогресса
-      this.progressData = [
-        { label: 'Янв', value: 65 },
-        { label: 'Фев', value: 72 },
-        { label: 'Мар', value: 68 },
-        { label: 'Апр', value: 78 },
-        { label: 'Май', value: 82 },
-        { label: 'Июн', value: 79 }
-      ]
-    },
-
-    async loadCategoryProgress() {
-      if (!this.user) return
-
-      try {
-        // В реальном проекте здесь нужно агрегировать данные по категориям
-        // Пока используем заглушку
-        this.categoryProgress = [
-          { name: 'JavaScript', correct: 42, total: 50, percentage: 84 },
-          { name: 'Python', correct: 28, total: 35, percentage: 80 },
-          { name: 'Алгоритмы', correct: 15, total: 25, percentage: 60 },
-          { name: 'Базы данных', correct: 18, total: 20, percentage: 90 }
-        ]
-      } catch (error) {
-        console.error('Error loading category progress:', error)
-        this.categoryProgress = []
-      }
-    },
-
-    async loadRecentResults() {
-      if (!this.user) return
-
-      try {
-        const { data: attempts, error } = await supabase
+        const { data: attempts, error: attemptsError } = await supabase
             .from('attempts')
-            .select(`
-              id,
-              score,
-              completed_at,
-              tests (
-                id,
-                title
-              )
-            `)
-            .eq('user_id', this.user.id)
-            .eq('status', 'completed')
+            .select('user_id, score, completed_at')
+            .in('test_id', testIds)
             .order('completed_at', { ascending: false })
-            .limit(5)
 
-        if (error) throw error
+        if (attemptsError) throw attemptsError
 
-        this.recentResults = (attempts || []).map(a => ({
-          id: a.id,
-          title: a.tests?.title || 'Тест',
-          date: a.completed_at,
-          score: a.score || 0
-        }))
+        const userIds = [...new Set(attempts?.map(a => a.user_id) || [])]
+
+        if (userIds.length === 0) {
+          this.allStudents = []
+          this.activeStudents = []
+          return
+        }
+
+        const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, group_name')
+            .in('id', userIds)
+
+        if (profilesError) throw profilesError
+
+        // Формируем список студентов
+        this.allStudents = profiles?.map(p => {
+          const userAttempts = attempts?.filter(a => a.user_id === p.id) || []
+          const avgScore = userAttempts.length > 0
+              ? Math.round(userAttempts.reduce((sum, a) => sum + (a.score || 0), 0) / userAttempts.length)
+              : 0
+          console.log(userAttempts)
+          return {
+            id: p.id,
+            name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Студент',
+            initials: ((p.first_name?.[0] || '') + (p.last_name?.[0] || '')).toUpperCase() || '?',
+            group: p.group_name || 'Без группы',
+            testsPassed: userAttempts.length,
+            avgScore,
+            lastActive: userAttempts[0]?.completed_at
+          }
+        }) || []
+        console.log(this.allStudents)
+        // Активные студенты (последние 5)
+        this.activeStudents = [...this.allStudents]
+            .sort((a, b) => new Date(b.lastActive || 0) - new Date(a.lastActive || 0))
+            .slice(0, 5)
+            .map(s => ({
+              ...s,
+              lastActive: s.lastActive ? this.formatDate(s.lastActive) : 'Давно'
+            }))
 
       } catch (error) {
-        console.error('Error loading recent results:', error)
-        this.recentResults = []
+        console.error('Error loading students:', error)
+        this.allStudents = []
+        this.activeStudents = []
       }
     },
 
-    async loadAchievements() {
-      if (!this.user) return
-
-      try {
-        // Получаем достижения пользователя
-        const { data: userAchievements, error } = await supabase
-            .from('user_achievements')
-            .select(`
-              achievement_id,
-              earned_at,
-              achievements (
-                id,
-                name,
-                description,
-                icon
-              )
-            `)
-            .eq('user_id', this.user.id)
-
-        if (error) throw error
-
-        const unlockedIds = new Set(userAchievements?.map(ua => ua.achievement_id) || [])
-
-        // Заглушка для списка всех достижений
-        const allAchievements = [
-          { id: 1, icon: '🏆', title: 'Первые шаги', description: 'Пройден первый тест' },
-          { id: 2, icon: '⚡', title: 'Скорость', description: '10 тестов за месяц' },
-          { id: 3, icon: '🎯', title: 'Точность', description: '90%+ правильных ответов в 5 тестах' },
-          { id: 4, icon: '📚', title: 'Эрудит', description: 'Пройдены тесты из 5 разных категорий' },
-          { id: 5, icon: '🔥', title: 'Стрик', description: '30 дней подряд на платформе' },
-          { id: 6, icon: '👑', title: 'Лидер', description: 'Лучший результат в группе' }
-        ]
-
-        this.achievements = allAchievements.map(ach => ({
-          ...ach,
-          unlocked: unlockedIds.has(ach.id)
-        }))
-
-      } catch (error) {
-        console.error('Error loading achievements:', error)
-        this.achievements = []
+    statusLabel(status) {
+      const labels = {
+        published: 'Опубликовано',
+        draft: 'Черновик',
+        archived: 'В архиве'
       }
+      return labels[status] || status
     },
 
-    formatRelativeDate(dateString) {
+    formatDate(dateString) {
       if (!dateString) return '—'
       const date = new Date(dateString)
       const now = new Date()
@@ -833,22 +895,12 @@ export default {
       return date.toLocaleDateString('ru-RU')
     },
 
-    formatDate(dateString) {
-      if (!dateString) return '—'
-      const date = new Date(dateString)
-      return date.toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      })
-    },
-
+    // Методы для работы с профилем
     editProfile() {
       this.editForm = {
         first_name: this.profile.first_name || '',
         last_name: this.profile.last_name || '',
         patronymic: this.profile.patronymic || '',
-        group_name: this.profile.group_name || '',
         bio: this.profile.bio || ''
       }
       this.showEditModal = true
@@ -862,7 +914,6 @@ export default {
               first_name: this.editForm.first_name,
               last_name: this.editForm.last_name,
               patronymic: this.editForm.patronymic,
-              group_name: this.editForm.group_name,
               bio: this.editForm.bio,
               updated_at: new Date().toISOString()
             })
@@ -892,16 +943,12 @@ export default {
               first_name: this.settingsForm.first_name,
               last_name: this.settingsForm.last_name,
               patronymic: this.settingsForm.patronymic,
-              group_name: this.settingsForm.group_name,
               bio: this.settingsForm.bio,
               updated_at: new Date().toISOString()
             })
             .eq('id', this.user.id)
 
         if (error) throw error
-
-        // Здесь также нужно сохранять настройки уведомлений
-        // (если есть отдельная таблица user_settings)
 
         await this.loadProfile()
         alert('Настройки сохранены')
@@ -917,16 +964,11 @@ export default {
         first_name: this.profile.first_name || '',
         last_name: this.profile.last_name || '',
         patronymic: this.profile.patronymic || '',
-        group_name: this.profile.group_name || '',
         bio: this.profile.bio || '',
         notifications: {
           email: true,
           results: true,
           reminders: false
-        },
-        privacy: {
-          showProgress: true,
-          showAchievements: false
         }
       }
     },
@@ -963,19 +1005,48 @@ export default {
       }
     },
 
-    startTest(testId) {
-      this.$router.push(`/test/${testId}`)
+    // Навигационные методы
+    goToTests() {
+      this.$router.push('/teacher/tests')
     },
 
-    viewResult(attemptId) {
-      this.$router.push(`/test/${attemptId}/results`)
-    }
+    createNewTest() {
+      this.$router.push('/teacher/test/new/edit')
+    },
+
+    editTest(testId) {
+      this.$router.push(`/teacher/test/${testId}/reports`)
+    },
+
+    viewStudentProfile(studentId) {
+      this.$router.push(`/profile/${studentId}`)
+    },
+
+
   }
 }
 </script>
 
 <style scoped>
-/* Добавляем стили для состояний загрузки и ошибок */
+/* Стили аналогичны StudentProfile с добавлением новых классов */
+
+.teacher-profile {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: #111;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Состояния загрузки и ошибок */
 .loading-state,
 .error-state {
   display: flex;
@@ -1018,39 +1089,14 @@ export default {
 }
 
 .no-data-message {
-  padding: 20px;
+  padding: 40px;
   text-align: center;
   color: #999;
   background: #f5f5f5;
   border: 1px solid #eee;
 }
 
-.student-bio {
-  color: #666;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #eee;
-}
-
-/* Остальные стили остаются без изменений */
-.student-profile {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.6;
-  color: #111;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #fafafa;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-
+/* Основной контент */
 .profile-main {
   padding: 120px 0 60px;
   flex: 1;
@@ -1074,12 +1120,14 @@ export default {
   font-size: 1rem;
 }
 
+/* Сетка профиля */
 .profile-grid {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 300px 1fr;
   gap: 32px;
 }
 
+/* Боковая панель */
 .profile-sidebar {
   background: white;
   border: 1px solid #eee;
@@ -1149,28 +1197,38 @@ export default {
   color: #666;
 }
 
-.student-name {
+.profile-name {
   font-size: 1.25rem;
   font-weight: 500;
   margin-bottom: 4px;
 }
 
-.student-email {
+.profile-email {
   color: #666;
   font-size: 0.9rem;
   margin-bottom: 4px;
 }
 
-.student-group {
+.profile-role {
   color: #999;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.profile-bio {
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
 }
 
 .profile-stats-mini {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   padding: 24px 0;
   border-top: 1px solid #eee;
@@ -1195,9 +1253,12 @@ export default {
 }
 
 .profile-actions {
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
+/* Основной контент */
 .profile-content {
   background: white;
   border: 1px solid #eee;
@@ -1242,288 +1303,317 @@ export default {
   background: #111;
 }
 
-.recent-activity,
-.upcoming-tests {
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Быстрая статистика */
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
   margin-bottom: 32px;
 }
 
-.recent-activity h3,
-.upcoming-tests h3 {
+.quick-stat-card {
+  background: #fafafa;
+  border: 1px solid #eee;
+  padding: 20px;
+  text-align: center;
+}
+
+.quick-stat-value {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 450;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.quick-stat-label {
+  font-size: 0.85rem;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* График */
+.chart-section {
+  margin-bottom: 32px;
+}
+
+.chart-section h3 {
   font-size: 1.1rem;
   font-weight: 500;
   margin-bottom: 16px;
 }
 
-.activity-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.activity-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid #f5f5f5;
-}
-
-.activity-icon {
-  font-size: 1.5rem;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fafafa;
-}
-
-.activity-details {
-  flex: 1;
-}
-
-.activity-title {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.activity-meta {
-  font-size: 0.85rem;
-  color: #999;
-}
-
-.upcoming-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.upcoming-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid #f5f5f5;
-}
-
-.upcoming-icon {
-  font-size: 1.2rem;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fafafa;
-}
-
-.upcoming-details {
-  flex: 1;
-}
-
-.upcoming-title {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.upcoming-meta {
-  font-size: 0.85rem;
-  color: #999;
-}
-
-.progress-chart {
-  margin-bottom: 32px;
-}
-
-.progress-chart h3 {
-  font-size: 1.1rem;
-  font-weight: 500;
-  margin-bottom: 16px;
-}
-
-.chart-placeholder {
+.chart-container {
   height: 200px;
   padding: 20px;
   background: #fafafa;
   border: 1px solid #eee;
-  display: flex;
-  align-items: flex-end;
 }
 
 .mini-chart {
-  width: 100%;
   height: 100%;
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
 }
 
-.chart-bar {
-  width: 40px;
-  background: #111;
-  position: relative;
-  transition: height 0.3s ease;
+.chart-column {
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.bar-label {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
+.chart-bar {
+  width: 20px;
+  background: #111;
+  margin-bottom: 8px;
+  transition: height 0.3s;
+}
+
+.chart-label {
   font-size: 0.75rem;
   color: #999;
 }
 
-.category-progress {
-  margin-bottom: 32px;
-}
-
-.category-progress h3 {
-  font-size: 1.1rem;
-  font-weight: 500;
-  margin-bottom: 16px;
-}
-
-.category-list {
+/* Списки тестов и студентов */
+.tests-list,
+.students-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.category-item {
-  padding: 12px;
-  border: 1px solid #f5f5f5;
-}
-
-.category-header {
+.test-item,
+.student-item {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #f5f5f5;
+  transition: border-color 0.2s;
 }
 
-.category-name {
-  font-size: 0.95rem;
+.test-item:hover,
+.student-item:hover {
+  border-color: #eee;
+}
+
+.test-info h4,
+.student-info h4 {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.test-info p {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.test-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.test-status {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+
+.test-status.published {
+  border-color: #4caf50;
+  color: #2e7d32;
+}
+
+.test-status.draft {
+  border-color: #ff9800;
+  color: #f57c00;
+}
+
+.test-status.archived {
+  border-color: #999;
   color: #666;
 }
 
-.category-score {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.progress-bar {
-  height: 6px;
+.student-avatar-small {
+  width: 32px;
+  height: 32px;
   background: #f5f5f5;
-}
-
-.progress-fill {
-  height: 100%;
-  background: #111;
-  transition: width 0.3s ease;
-}
-
-.recent-results h3 {
-  font-size: 1.1rem;
+  border: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
   font-weight: 500;
-  margin-bottom: 16px;
+  color: #666;
+  flex-shrink: 0;
 }
 
-.results-table {
+.student-info {
+  flex: 1;
+  margin-left: 12px;
+}
+
+.student-name {
+  display: block;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.student-group {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.student-activity {
+  color: #999;
+  font-size: 0.85rem;
+}
+
+/* Таблица тестов */
+.tests-table {
+  overflow-x: auto;
+}
+
+.tests-table table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.results-table th {
+.tests-table th {
   text-align: left;
-  padding: 12px 8px;
+  padding: 16px 12px;
   font-weight: 500;
   font-size: 0.9rem;
   color: #999;
   border-bottom: 1px solid #eee;
 }
 
-.results-table td {
-  padding: 12px 8px;
+.tests-table td {
+  padding: 16px 12px;
   border-bottom: 1px solid #f5f5f5;
 }
 
-.result-badge {
-  padding: 2px 8px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.result-badge.good {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.result-badge.medium {
-  background: #fff3e0;
-  color: #f57c00;
-}
-
-.result-badge.bad {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.achievements-grid {
+/* Сетка студентов */
+.students-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
 }
 
-.achievement-card {
+.student-card {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 20px;
-  border: 1px solid #eee;
-  position: relative;
-  transition: all 0.2s;
+  border: 1px solid #f5f5f5;
+  transition: border-color 0.2s;
 }
 
-.achievement-card.unlocked {
-  background: #fafafa;
+.student-card:hover {
+  border-color: #eee;
 }
 
-.achievement-icon {
-  font-size: 2rem;
+.student-avatar {
   width: 48px;
   height: 48px;
+  background: #f5f5f5;
+  border: 1px solid #eee;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border: 1px solid #eee;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #666;
+  flex-shrink: 0;
 }
 
-.achievement-info {
+.student-card-info {
   flex: 1;
 }
 
-.achievement-info h4 {
+.student-card-info h4 {
   font-size: 1rem;
   font-weight: 500;
   margin-bottom: 4px;
 }
 
-.achievement-info p {
-  font-size: 0.85rem;
+.student-card-info p {
   color: #666;
-  margin: 0;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
 }
 
-.achievement-check,
-.achievement-lock {
-  font-size: 1.2rem;
-  opacity: 0.5;
+.student-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #999;
 }
 
-.achievement-check {
-  color: #4caf50;
+/* Фильтры */
+.tests-filters,
+.students-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
+.search-input,
+.filter-select {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+  background: white;
+}
+
+.search-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #111;
+}
+
+/* Пустое состояние */
+.empty-state {
+  padding: 40px;
+  text-align: center;
+  border: 1px solid #eee;
+  color: #999;
+  background: #fafafa;
+}
+
+.empty-state p {
+  margin-bottom: 16px;
+}
+
+/* Настройки */
 .settings-section {
   margin-bottom: 32px;
   padding-bottom: 24px;
@@ -1585,6 +1675,7 @@ export default {
   gap: 12px;
 }
 
+/* Модальное окно */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1620,6 +1711,7 @@ export default {
   margin-top: 24px;
 }
 
+/* Кнопки */
 .btn {
   display: inline-block;
   padding: 10px 20px;
@@ -1662,6 +1754,16 @@ export default {
   font-size: 0.85rem;
 }
 
+.btn-link {
+  background: none;
+  border: none;
+  color: #111;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
 .btn-link-small {
   background: none;
   border: none;
@@ -1676,13 +1778,7 @@ export default {
   color: #111;
 }
 
-.empty-state {
-  padding: 32px;
-  text-align: center;
-  border: 1px solid #eee;
-  color: #999;
-}
-
+/* Адаптивность */
 @media (max-width: 1024px) {
   .profile-grid {
     grid-template-columns: 1fr;
@@ -1692,7 +1788,7 @@ export default {
     position: static;
   }
 
-  .achievements-grid {
+  .students-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1715,9 +1811,29 @@ export default {
     display: none;
   }
 
-  .results-table {
-    display: block;
-    overflow-x: auto;
+  .quick-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .tests-filters,
+  .students-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .test-item,
+  .student-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .student-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .student-stats {
+    justify-content: center;
   }
 
   .settings-actions {

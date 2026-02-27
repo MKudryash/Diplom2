@@ -14,15 +14,16 @@
                 v-model="test.title"
                 placeholder="Название теста"
                 class="title-input"
+                :disabled="saving || publishing"
             />
             <span class="test-status" :class="test.status">{{ statusLabel }}</span>
           </div>
         </div>
         <div class="header-actions">
-          <button @click="saveTest" class="btn btn-outline" :disabled="saving">
+          <button @click="saveTest" class="btn btn-outline" :disabled="saving || !hasChanges">
             {{ saving ? 'Сохранение...' : 'Сохранить' }}
           </button>
-          <button @click="publishTest" class="btn btn-primary" :disabled="publishing">
+          <button @click="publishTest" class="btn btn-primary" :disabled="publishing || !canPublish">
             {{ publishing ? 'Публикация...' : 'Опубликовать' }}
           </button>
         </div>
@@ -32,18 +33,34 @@
     <!-- Основной контент -->
     <main class="constructor-main">
       <div class="container">
-        <div class="constructor-grid">
+        <!-- Состояние загрузки -->
+        <div v-if="loading" class="loading-state">
+          <div class="loader"></div>
+          <p>Загрузка теста...</p>
+        </div>
+
+        <!-- Ошибка загрузки -->
+        <div v-else-if="error" class="error-state">
+          <p class="error-icon">❌</p>
+          <h3>Ошибка загрузки</h3>
+          <p>{{ error }}</p>
+          <button @click="loadTest" class="btn btn-primary">Повторить</button>
+        </div>
+
+        <div v-else class="constructor-grid">
           <!-- Левая колонка: Список вопросов -->
           <aside class="questions-sidebar">
             <div class="sidebar-header">
               <h3>Вопросы ({{ test.questions.length }})</h3>
-              <button @click="addQuestion" class="btn btn-primary btn-sm">+ Добавить</button>
+              <button @click="addQuestion" class="btn btn-primary btn-sm" :disabled="saving">
+                + Добавить
+              </button>
             </div>
 
             <div class="questions-list">
               <div
                   v-for="(q, index) in test.questions"
-                  :key="index"
+                  :key="q.id || index"
                   class="question-item"
                   :class="{ active: currentQuestionIndex === index }"
                   @click="selectQuestion(index)"
@@ -54,8 +71,8 @@
                   <span class="question-text">{{ q.text || 'Новый вопрос' }}</span>
                 </div>
                 <div class="question-actions">
-                  <button @click.stop="duplicateQuestion(index)" class="icon-btn">📋</button>
-                  <button @click.stop="deleteQuestion(index)" class="icon-btn delete">✕</button>
+                  <button @click.stop="duplicateQuestion(index)" class="icon-btn" title="Дублировать">📋</button>
+                  <button @click.stop="deleteQuestion(index)" class="icon-btn delete" title="Удалить">✕</button>
                 </div>
               </div>
             </div>
@@ -73,11 +90,10 @@
             <div class="editor-header">
               <h2>Вопрос {{ currentQuestionIndex + 1 }}</h2>
               <div class="question-type-selector">
-                <select v-model="currentQuestion.type" class="type-select">
+                <select v-model="currentQuestion.type" class="type-select" @change="onQuestionTypeChange">
                   <option value="single">Один вариант</option>
                   <option value="multiple">Несколько вариантов</option>
                   <option value="text">Текстовый ответ</option>
-                  <option value="match">Сопоставление</option>
                 </select>
               </div>
             </div>
@@ -90,6 +106,7 @@
                   rows="3"
                   placeholder="Введите текст вопроса..."
                   class="form-input"
+                  :disabled="saving"
               ></textarea>
             </div>
 
@@ -99,33 +116,31 @@
               <div v-for="(opt, idx) in currentQuestion.options" :key="idx" class="option-row">
                 <input
                     type="text"
-                    v-model="currentQuestion.options[idx]"
+                    v-model="opt.text"
                     :placeholder="`Вариант ${idx + 1}`"
                     class="option-input"
+                    :disabled="saving"
                 />
                 <div class="option-controls">
                   <label class="correct-checkbox">
                     <input
                         type="checkbox"
-                        :checked="isCorrectOption(idx)"
+                        :checked="opt.is_correct"
                         @change="toggleCorrectOption(idx)"
+                        :disabled="saving"
                     />
                     <span>Правильный</span>
                   </label>
-                  <button @click="removeOption(idx)" class="icon-btn small">✕</button>
+                  <button @click="removeOption(idx)" class="icon-btn small" :disabled="saving">✕</button>
                 </div>
               </div>
-              <button @click="addOption" class="btn btn-outline btn-sm">
+              <button @click="addOption" class="btn btn-outline btn-sm" :disabled="saving">
                 + Добавить вариант
               </button>
             </div>
 
             <!-- Для текстового ответа -->
             <div v-if="currentQuestion.type === 'text'" class="text-answer-settings">
-              <label class="checkbox">
-                <input type="checkbox" v-model="currentQuestion.caseSensitive" />
-                <span>Учитывать регистр</span>
-              </label>
               <div class="form-group">
                 <label>Ключевые слова (через запятую)</label>
                 <input
@@ -133,33 +148,9 @@
                     v-model="currentQuestion.keywords"
                     placeholder="например: функция, замыкание, область видимости"
                     class="form-input"
+                    :disabled="saving"
                 />
               </div>
-            </div>
-
-            <!-- Для сопоставления -->
-            <div v-if="currentQuestion.type === 'match'" class="match-editor">
-              <div class="match-pairs">
-                <div v-for="(pair, idx) in currentQuestion.pairs" :key="idx" class="match-row">
-                  <input
-                      type="text"
-                      v-model="pair.left"
-                      placeholder="Левый элемент"
-                      class="match-input left"
-                  />
-                  <span class="match-arrow">→</span>
-                  <input
-                      type="text"
-                      v-model="pair.right"
-                      placeholder="Правый элемент"
-                      class="match-input right"
-                  />
-                  <button @click="removePair(idx)" class="icon-btn small">✕</button>
-                </div>
-              </div>
-              <button @click="addPair" class="btn btn-outline btn-sm">
-                + Добавить пару
-              </button>
             </div>
 
             <!-- Баллы -->
@@ -170,6 +161,7 @@
                   v-model.number="currentQuestion.points"
                   min="1"
                   class="points-input"
+                  :disabled="saving"
               />
             </div>
 
@@ -181,6 +173,7 @@
                   rows="2"
                   placeholder="Объясните правильный ответ..."
                   class="form-input"
+                  :disabled="saving"
               ></textarea>
             </div>
 
@@ -189,12 +182,22 @@
               <summary>Дополнительные настройки</summary>
 
               <div class="form-group">
+                <label>Сложность</label>
+                <select v-model="currentQuestion.difficulty" class="type-select" :disabled="saving">
+                  <option value="beginner">Начальный</option>
+                  <option value="intermediate">Средний</option>
+                  <option value="advanced">Продвинутый</option>
+                </select>
+              </div>
+
+              <div class="form-group">
                 <label>Изображение (URL)</label>
                 <input
                     type="url"
-                    v-model="currentQuestion.image"
+                    v-model="currentQuestion.image_url"
                     placeholder="https://..."
                     class="form-input"
+                    :disabled="saving"
                 />
               </div>
 
@@ -205,11 +208,12 @@
                     rows="4"
                     placeholder="Вставьте код..."
                     class="form-input code-input"
+                    :disabled="saving"
                 ></textarea>
               </div>
 
               <label class="checkbox">
-                <input type="checkbox" v-model="currentQuestion.required" />
+                <input type="checkbox" v-model="currentQuestion.required" :disabled="saving" />
                 <span>Обязательный вопрос</span>
               </label>
             </details>
@@ -221,7 +225,7 @@
               <p class="empty-icon">📝</p>
               <h3>Нет вопросов</h3>
               <p>Добавьте первый вопрос</p>
-              <button @click="addQuestion" class="btn btn-primary">+ Добавить вопрос</button>
+              <button @click="addQuestion" class="btn btn-primary" :disabled="saving">+ Добавить вопрос</button>
             </div>
           </section>
         </div>
@@ -234,6 +238,7 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
 import AppNavigation from '../components/navigation'
 import AppFooter from '../components/footer'
 
@@ -246,18 +251,27 @@ export default {
   data() {
     return {
       testId: null,
+      isNewTest: false,
+      loading: true,
       saving: false,
       publishing: false,
+      error: null,
       currentQuestionIndex: 0,
+      hasChanges: false,
 
       test: {
+        id: null,
         title: '',
         description: '',
         status: 'draft',
-        time: 30,
-        passingScore: 70,
+        time_limit: 30,
+        passing_score: 70,
+        difficulty: 'intermediate',
+        category: '',
         questions: []
-      }
+      },
+
+      originalTest: null // Для отслеживания изменений
     }
   },
   computed: {
@@ -271,16 +285,33 @@ export default {
 
     maxScore() {
       return this.test.questions.reduce((sum, q) => sum + (q.points || 1), 0)
+    },
+
+    canPublish() {
+      return this.test.title &&
+          this.test.questions.length > 0 &&
+          this.test.questions.every(q => q.text &&
+              (q.type === 'text' || (q.options && q.options.some(opt => opt.is_correct)))
+          )
     }
   },
-  created() {
+  watch: {
+    test: {
+      handler() {
+        this.hasChanges = JSON.stringify(this.test) !== JSON.stringify(this.originalTest)
+      },
+      deep: true
+    }
+  },
+  async created() {
     this.testId = this.$route.params.id
     this.isNewTest = this.testId === 'new'
 
     if (!this.isNewTest) {
-      this.loadTest()
+      await this.loadTest()
     } else {
       this.initNewTest()
+      this.loading = false
     }
   },
   methods: {
@@ -290,53 +321,285 @@ export default {
         title: 'Новый тест',
         description: '',
         status: 'draft',
-        time: 30,
-        passingScore: 70,
+        time_limit: 30,
+        passing_score: 70,
+        difficulty: 'intermediate',
+        category: '',
         questions: []
       }
-      console.log('Создание нового теста')
+      this.originalTest = JSON.parse(JSON.stringify(this.test))
     },
 
-    loadTest() {
-      console.log('Загрузка теста для редактирования:', this.testId)
-      // Здесь будет загрузка с API
+    async loadTest() {
+      this.loading = true
+      this.error = null
+
+      try {
+        // Загружаем информацию о тесте
+        const { data: testData, error: testError } = await supabase
+            .from('tests')
+            .select('*')
+            .eq('id', this.testId)
+            .single()
+
+        if (testError) throw testError
+        if (!testData) throw new Error('Тест не найден')
+
+        // Загружаем вопросы теста
+        const { data: questionsData, error: questionsError } = await supabase
+            .from('questions')
+            .select(`
+              id,
+              text,
+              type,
+              points,
+              explanation,
+              hint,
+              difficulty,
+              image_url,
+              code,
+              required,
+              "order",
+              options (*)
+            `)
+            .eq('test_id', this.testId)
+            .order('order', { ascending: true })
+
+        if (questionsError) throw questionsError
+
+        // Форматируем вопросы
+        this.test = {
+          ...testData,
+          questions: (questionsData || []).map(q => ({
+            id: q.id,
+            text: q.text || '',
+            type: q.type || 'single',
+            points: q.points || 1,
+            explanation: q.explanation || '',
+            hint: q.hint || '',
+            difficulty: q.difficulty || 'intermediate',
+            image_url: q.image_url || '',
+            code: q.code || '',
+            required: q.required !== false,
+            order: q.order,
+            options: (q.options || []).sort((a, b) => a.order - b.order).map(o => ({
+              id: o.id,
+              text: o.text || '',
+              is_correct: o.is_correct || false,
+              order: o.order
+            })),
+            keywords: '' // Для текстовых вопросов
+          }))
+        }
+
+        this.originalTest = JSON.parse(JSON.stringify(this.test))
+        this.currentQuestionIndex = this.test.questions.length > 0 ? 0 : -1
+
+      } catch (error) {
+        console.error('Error loading test:', error)
+        this.error = error.message || 'Не удалось загрузить тест'
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async saveTest() {
+      if (!this.test.title) {
+        alert('Введите название теста')
+        return
+      }
+
+      this.saving = true
+      this.error = null
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+          this.$router.push('/login')
+          return
+        }
+
+        let testId = this.test.id
+
+        if (this.isNewTest) {
+          // Создаем новый тест
+          const { data: newTest, error: createError } = await supabase
+              .from('tests')
+              .insert([{
+                title: this.test.title,
+                description: this.test.description || '',
+                time_limit: this.test.time_limit,
+                passing_score: this.test.passing_score,
+                difficulty: this.test.difficulty,
+                category: this.test.category,
+                status: 'draft',
+                created_by: user.id
+              }])
+              .select()
+              .single()
+
+          if (createError) throw createError
+
+          testId = newTest.id
+          this.test.id = testId
+          this.isNewTest = false
+        } else {
+          // Обновляем существующий тест
+          const { error: updateError } = await supabase
+              .from('tests')
+              .update({
+                title: this.test.title,
+                description: this.test.description,
+                time_limit: this.test.time_limit,
+                passing_score: this.test.passing_score,
+                difficulty: this.test.difficulty,
+                category: this.test.category,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', this.test.id)
+
+          if (updateError) throw updateError
+        }
+
+        // Сохраняем вопросы
+        await this.saveQuestions(testId)
+
+        // Обновляем оригинальную версию
+        this.originalTest = JSON.parse(JSON.stringify(this.test))
+        this.hasChanges = false
+
+        alert('Тест успешно сохранен')
+
+      } catch (error) {
+        console.error('Error saving test:', error)
+        this.error = 'Ошибка при сохранении теста'
+        alert('Ошибка при сохранении теста')
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async saveQuestions(testId) {
+      // Удаляем все существующие вопросы (для простоты)
+      if (!this.isNewTest) {
+        const { error: deleteOptionsError } = await supabase
+            .from('options')
+            .delete()
+            .in('question_id', this.test.questions.map(q => q.id).filter(id => id && !id.toString().startsWith('temp')))
+
+        if (deleteOptionsError) throw deleteOptionsError
+
+        const { error: deleteQuestionsError } = await supabase
+            .from('questions')
+            .delete()
+            .eq('test_id', testId)
+
+        if (deleteQuestionsError) throw deleteQuestionsError
+      }
+
+      // Создаем новые вопросы
+      for (let i = 0; i < this.test.questions.length; i++) {
+        const q = this.test.questions[i]
+
+        const { data: questionData, error: questionError } = await supabase
+            .from('questions')
+            .insert([{
+              test_id: testId,
+              text: q.text || '',
+              type: q.type,
+              points: q.points || 1,
+              explanation: q.explanation || '',
+              hint: q.hint || '',
+              difficulty: q.difficulty || 'intermediate',
+              image_url: q.image_url || '',
+              code: q.code || '',
+              required: q.required,
+              order: i
+            }])
+            .select()
+            .single()
+
+        if (questionError) throw questionError
+
+        // Сохраняем options для single/multiple вопросов
+        if (q.type === 'single' || q.type === 'multiple') {
+          const options = q.options.map((opt, idx) => ({
+            question_id: questionData.id,
+            text: opt.text || '',
+            is_correct: opt.is_correct || false,
+            order: idx
+          }))
+
+          const { error: optionsError } = await supabase
+              .from('options')
+              .insert(options)
+
+          if (optionsError) throw optionsError
+        }
+
+        // Обновляем ID вопроса в локальном состоянии
+        q.id = questionData.id
+      }
+    },
+
+    async publishTest() {
+      if (!this.canPublish) {
+        alert('Нельзя опубликовать тест: заполните все обязательные поля')
+        return
+      }
+
+      this.publishing = true
+
+      try {
+        // Сначала сохраняем тест
+        await this.saveTest()
+
+        // Обновляем статус
+        const { error } = await supabase
+            .from('tests')
+            .update({
+              status: 'published',
+              published_at: new Date().toISOString()
+            })
+            .eq('id', this.test.id)
+
+        if (error) throw error
+
+        this.test.status = 'published'
+        this.originalTest.status = 'published'
+        alert('Тест успешно опубликован')
+
+      } catch (error) {
+        console.error('Error publishing test:', error)
+        alert('Ошибка при публикации теста')
+      } finally {
+        this.publishing = false
+      }
     },
 
     goBack() {
-      this.$router.push('/teacher/tests')
-    },
-
-    saveTest() {
-      this.saving = true
-      setTimeout(() => {
-        console.log('Тест сохранен:', this.test)
-        this.saving = false
-        if (this.isNewTest) {
-          // После сохранения нового теста, переходим в режим редактирования
-          this.isNewTest = false
-          this.testId = 'temp-id' // Здесь должен быть реальный ID из ответа сервера
+      if (this.hasChanges) {
+        if (confirm('У вас есть несохраненные изменения. Выйти без сохранения?')) {
+          this.$router.push('/teacher/tests')
         }
-      }, 500)
-    },
-
-    publishTest() {
-      this.publishing = true
-      setTimeout(() => {
-        console.log('Тест опубликован:', this.test)
-        this.publishing = false
-        this.test.status = 'published'
-      }, 500)
+      } else {
+        this.$router.push('/teacher/tests')
+      }
     },
 
     addQuestion() {
       const newQuestion = {
-        id: Date.now(),
+        id: `temp_${Date.now()}`,
         type: 'single',
         text: '',
-        options: ['', ''],
-        correctAnswers: [0],
+        options: [
+          { text: '', is_correct: false },
+          { text: '', is_correct: false }
+        ],
         points: 1,
         explanation: '',
+        difficulty: 'intermediate',
         required: true
       }
 
@@ -350,11 +613,13 @@ export default {
 
     duplicateQuestion(index) {
       const question = JSON.parse(JSON.stringify(this.test.questions[index]))
-      question.id = Date.now()
+      question.id = `temp_${Date.now()}`
       this.test.questions.splice(index + 1, 0, question)
     },
 
     deleteQuestion(index) {
+      if (!confirm('Удалить вопрос?')) return
+
       if (this.test.questions.length > 1) {
         this.test.questions.splice(index, 1)
         if (this.currentQuestionIndex >= index) {
@@ -370,69 +635,99 @@ export default {
       const icons = {
         single: '○',
         multiple: '☐',
-        text: 'T',
-        match: '↔'
+        text: 'T'
       }
       return icons[type] || '○'
     },
 
+    onQuestionTypeChange() {
+      if (this.currentQuestion.type === 'single' || this.currentQuestion.type === 'multiple') {
+        if (!this.currentQuestion.options || this.currentQuestion.options.length === 0) {
+          this.currentQuestion.options = [
+            { text: '', is_correct: false },
+            { text: '', is_correct: false }
+          ]
+        }
+      }
+    },
+
     addOption() {
       if (this.currentQuestion) {
-        this.currentQuestion.options.push('')
+        this.currentQuestion.options.push({ text: '', is_correct: false })
       }
     },
 
     removeOption(index) {
       if (this.currentQuestion.options.length > 1) {
         this.currentQuestion.options.splice(index, 1)
-        // Удаляем этот вариант из правильных ответов
-        const correctIndex = this.currentQuestion.correctAnswers.indexOf(index)
-        if (correctIndex > -1) {
-          this.currentQuestion.correctAnswers.splice(correctIndex, 1)
-        }
-        // Сдвигаем индексы
-        this.currentQuestion.correctAnswers = this.currentQuestion.correctAnswers.map(i =>
-            i > index ? i - 1 : i
-        )
-      }
-    },
-
-    isCorrectOption(index) {
-      if (this.currentQuestion.type === 'single') {
-        return this.currentQuestion.correctAnswers[0] === index
-      } else {
-        return this.currentQuestion.correctAnswers.includes(index)
       }
     },
 
     toggleCorrectOption(index) {
+      const option = this.currentQuestion.options[index]
+
       if (this.currentQuestion.type === 'single') {
-        this.currentQuestion.correctAnswers = [index]
+        // Для single - только один правильный
+        this.currentQuestion.options.forEach((opt, i) => {
+          opt.is_correct = i === index
+        })
       } else {
-        const pos = this.currentQuestion.correctAnswers.indexOf(index)
-        if (pos === -1) {
-          this.currentQuestion.correctAnswers.push(index)
-        } else {
-          this.currentQuestion.correctAnswers.splice(pos, 1)
-        }
+        // Для multiple - переключаем
+        option.is_correct = !option.is_correct
       }
     },
 
-    addPair() {
-      if (!this.currentQuestion.pairs) {
-        this.currentQuestion.pairs = []
-      }
-      this.currentQuestion.pairs.push({ left: '', right: '' })
-    },
-
-    removePair(index) {
-      this.currentQuestion.pairs.splice(index, 1)
+    isCorrectOption(index) {
+      return this.currentQuestion.options[index]?.is_correct || false
     }
   }
 }
 </script>
 
 <style scoped>
+/* Добавляем стили для состояний загрузки и ошибок */
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  padding: 40px;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #eee;
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.error-state h3 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+
+.error-state p {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Остальные стили остаются без изменений */
 .test-constructor {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.6;
@@ -504,6 +799,12 @@ export default {
 .title-input:focus {
   outline: none;
   border-bottom: 1px solid #111;
+}
+
+.title-input:disabled {
+  background: transparent;
+  color: #666;
+  cursor: not-allowed;
 }
 
 .test-status {
@@ -686,6 +987,11 @@ export default {
   background-position: right 8px center;
 }
 
+.type-select:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
 .form-group {
   margin-bottom: 24px;
 }
@@ -712,6 +1018,11 @@ export default {
   border-color: #111;
 }
 
+.form-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
 /* Редактор вариантов */
 .options-editor {
   margin-bottom: 24px;
@@ -729,6 +1040,11 @@ export default {
   padding: 8px 12px;
   border: 1px solid #ddd;
   font-size: 0.95rem;
+}
+
+.option-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
 }
 
 .option-controls {
@@ -752,23 +1068,8 @@ export default {
   margin: 0;
 }
 
-/* Сопоставление */
-.match-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.match-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  font-size: 0.95rem;
-}
-
-.match-arrow {
-  color: #999;
+.correct-checkbox input:disabled {
+  cursor: not-allowed;
 }
 
 /* Баллы */
@@ -785,6 +1086,11 @@ export default {
   font-size: 0.95rem;
 }
 
+.points-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
 /* Чекбоксы */
 .checkbox {
   display: flex;
@@ -799,6 +1105,10 @@ export default {
   width: 16px;
   height: 16px;
   margin: 0;
+}
+
+.checkbox input:disabled {
+  cursor: not-allowed;
 }
 
 /* Дополнительные настройки */
@@ -885,13 +1195,18 @@ export default {
   font-size: 0.9rem;
 }
 
-.icon-btn:hover {
+.icon-btn:hover:not(:disabled) {
   border-color: #111;
 }
 
-.icon-btn.delete:hover {
+.icon-btn.delete:hover:not(:disabled) {
   border-color: #f44336;
   color: #f44336;
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .icon-btn.small {
@@ -958,14 +1273,6 @@ export default {
 
   .option-row {
     flex-wrap: wrap;
-  }
-
-  .match-row {
-    flex-wrap: wrap;
-  }
-
-  .match-input {
-    width: 100%;
   }
 }
 </style>

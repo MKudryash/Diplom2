@@ -11,6 +11,11 @@
         <p class="modal-subtitle">Войдите в свой аккаунт</p>
       </div>
 
+      <!-- Сообщение об ошибке -->
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
+
       <form @submit.prevent="handleLogin" class="modal-form">
         <div class="form-group">
           <label for="email">Email</label>
@@ -19,6 +24,7 @@
               id="email"
               v-model="form.email"
               placeholder="your@email.com"
+              :disabled="loading"
               required
           />
         </div>
@@ -30,6 +36,7 @@
               id="password"
               v-model="form.password"
               placeholder="••••••••"
+              :disabled="loading"
               required
           />
           <button
@@ -37,6 +44,7 @@
               class="password-toggle"
               @click="showPassword = !showPassword"
               :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
+              :disabled="loading"
           >
             <span v-if="showPassword">Скрыть</span>
             <span v-else>Показать</span>
@@ -45,22 +53,25 @@
 
         <div class="form-options">
           <label class="checkbox">
-            <input type="checkbox" v-model="form.remember" />
+            <input type="checkbox" v-model="form.remember" :disabled="loading" />
             <span>Запомнить меня</span>
           </label>
-          <a href="#" class="forgot-link">Забыли пароль?</a>
+          <a href="#" class="forgot-link" @click.prevent="handleForgotPassword">Забыли пароль?</a>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
           <span v-if="!loading">Войти</span>
-          <span v-else>Загрузка...</span>
+          <span v-else>
+            <span class="spinner"></span>
+            Загрузка...
+          </span>
         </button>
       </form>
 
       <div class="modal-footer">
         <p>
           Нет аккаунта?
-          <button class="link-button" @click="$emit('switch-to-register')">
+          <button class="link-button" @click="$emit('switch-to-register')" :disabled="loading">
             Зарегистрироваться
           </button>
         </p>
@@ -70,6 +81,8 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
+
 export default {
   name: 'LoginModal',
   data() {
@@ -81,18 +94,90 @@ export default {
       },
       showPassword: false,
       loading: false,
+      error: null,
     }
   },
   methods: {
-    handleLogin() {
+    async handleLogin() {
+      // Валидация
+      if (!this.form.email || !this.form.password) {
+        this.error = 'Пожалуйста, заполните все поля'
+        return
+      }
+
       this.loading = true
-      // Имитация запроса к API
-      setTimeout(() => {
+      this.error = null
+
+      try {
+        // Пытаемся войти через email (студент или преподаватель)
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: this.form.email,
+          password: this.form.password,
+        })
+
+        if (error) throw error
+
+        if (data?.user) {
+          console.log('Успешный вход:', data.user)
+
+          // Если пользователь выбрал "Запомнить меня", устанавливаем более длительную сессию
+          if (this.form.remember) {
+            // В Supabase это настраивается на уровне проекта
+            // Можно дополнительно сохранить флаг в localStorage
+            localStorage.setItem('remember_me', 'true')
+          }
+
+          // Получаем профиль пользователя для определения роли
+          const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', data.user.id)
+              .single()
+
+          if (profileError) {
+            console.warn('Не удалось загрузить профиль:', profileError)
+          }
+
+          // Определяем роль пользователя
+          const userRole = profile?.role || 'student'
+
+          // Сохраняем информацию о пользователе
+          localStorage.setItem('user_role', userRole)
+
+          // Показываем успешное сообщение
+          this.$emit('login-success', { user: data.user, role: userRole })
+
+          // Закрываем модальное окно
+          this.$emit('close')
+
+          // Перенаправляем в зависимости от роли
+          if (userRole === 'teacher' || userRole === 'admin') {
+            this.$router.push('/teacher/tests')
+          } else {
+            this.$router.push('/tests')
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка входа:', error)
+
+        // Обработка различных ошибок
+        if (error.message.includes('Invalid login credentials')) {
+          this.error = 'Неверный email или пароль'
+        } else if (error.message.includes('Email not confirmed')) {
+          this.error = 'Email не подтвержден. Проверьте вашу почту'
+        } else if (error.message.includes('rate limit')) {
+          this.error = 'Слишком много попыток. Попробуйте позже'
+        } else {
+          this.error = error.message || 'Ошибка при входе. Попробуйте позже'
+        }
+      } finally {
         this.loading = false
-        console.log('Login:', this.form)
-        // Здесь будет реальная логика входа
-        this.$emit('close')
-      }, 1000)
+      }
+    },
+
+    handleForgotPassword() {
+      // Открываем модальное окно восстановления пароля
+      this.$emit('switch-to-forgot-password')
     },
   },
 }
@@ -172,6 +257,17 @@ export default {
   font-size: 0.95rem;
 }
 
+/* Сообщение об ошибке */
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  text-align: center;
+  border: 1px solid #ffcdd2;
+}
+
 .modal-form {
   margin-bottom: 24px;
 }
@@ -204,6 +300,11 @@ export default {
   border-color: #111;
 }
 
+.form-group input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
 .password-toggle {
   position: absolute;
   right: 12px;
@@ -216,8 +317,13 @@ export default {
   padding: 0;
 }
 
-.password-toggle:hover {
+.password-toggle:hover:not(:disabled) {
   color: #111;
+}
+
+.password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .form-options {
@@ -241,6 +347,11 @@ export default {
   height: 16px;
   margin: 0;
   cursor: pointer;
+}
+
+.checkbox input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .forgot-link {
@@ -287,6 +398,22 @@ export default {
   width: 100%;
 }
 
+/* Спиннер загрузки */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .modal-footer {
   text-align: center;
   color: #666;
@@ -304,7 +431,12 @@ export default {
   font-size: 0.95rem;
 }
 
-.link-button:hover {
+.link-button:hover:not(:disabled) {
   color: #333;
+}
+
+.link-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
