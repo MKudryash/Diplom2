@@ -6,143 +6,175 @@
     <!-- Основной контент -->
     <main class="results-main">
       <div class="container">
-        <!-- Хлебные крошки -->
-        <div class="breadcrumbs">
-          <a href="/tests" class="breadcrumb-link">Каталог тестов</a>
-          <span class="breadcrumb-separator">/</span>
-          <a :href="`/test/${testId}`" class="breadcrumb-link">{{ test.title }}</a>
-          <span class="breadcrumb-separator">/</span>
-          <span class="breadcrumb-current">Результаты</span>
+        <!-- Состояние загрузки -->
+        <div v-if="loading" class="loading-state">
+          <div class="loader"></div>
+          <p>Загрузка результатов...</p>
         </div>
 
-        <!-- Заголовок -->
-        <div class="results-header">
-          <h1 class="results-title">{{ test.title }}</h1>
-          <p class="results-subtitle">Результаты тестирования</p>
-        </div>
-
-        <!-- Основные показатели -->
-        <div class="score-overview">
-          <div class="score-card main-score">
-            <div class="score-circle" :style="{ '--percentage': result.scorePercentage }">
-              <div class="circle-inner">
-                <span class="score-value">{{ result.scorePercentage }}%</span>
-                <span class="score-label">общий результат</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="score-stats-grid">
-            <div class="stat-card">
-              <span class="stat-icon">✓</span>
-              <div class="stat-content">
-                <span class="stat-value">{{ result.correctAnswers }}/{{ result.totalQuestions }}</span>
-                <span class="stat-label">правильных ответов</span>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <span class="stat-icon">⏱️</span>
-              <div class="stat-content">
-                <span class="stat-value">{{ formatTime(result.timeSpent) }}</span>
-                <span class="stat-label">время выполнения</span>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <span class="stat-icon">⚑</span>
-              <div class="stat-content">
-                <span class="stat-value">{{ result.flaggedCount || 0 }}</span>
-                <span class="stat-label">отмеченных вопросов</span>
-              </div>
-            </div>
-
-            <div class="stat-card" :class="{ 'success': result.passed, 'fail': !result.passed }">
-              <span class="stat-icon">{{ result.passed ? '🏆' : '📝' }}</span>
-              <div class="stat-content">
-                <span class="stat-value">{{ result.passed ? 'Пройден' : 'Не пройден' }}</span>
-                <span class="stat-label">проходной балл {{ test.passingScore }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Детальная статистика -->
-        <div class="detailed-stats">
-          <h2 class="section-title">Детальная статистика</h2>
-
-          <div class="stats-breakdown">
-            <div class="breakdown-item">
-              <span class="breakdown-label">Всего вопросов:</span>
-              <span class="breakdown-value">{{ result.totalQuestions }}</span>
-            </div>
-            <div class="breakdown-item">
-              <span class="breakdown-label">Правильных ответов:</span>
-              <span class="breakdown-value correct">{{ result.correctAnswers }}</span>
-            </div>
-            <div class="breakdown-item">
-              <span class="breakdown-label">Неправильных ответов:</span>
-              <span class="breakdown-value incorrect">{{ result.incorrectAnswers }}</span>
-            </div>
-            <div class="breakdown-item">
-              <span class="breakdown-label">Пропущено вопросов:</span>
-              <span class="breakdown-value skipped">{{ result.skippedAnswers }}</span>
-            </div>
-            <div class="breakdown-item">
-              <span class="breakdown-label">Точность:</span>
-              <span class="breakdown-value">{{ result.accuracy }}%</span>
-            </div>
-            <div class="breakdown-item">
-              <span class="breakdown-label">Затрачено времени:</span>
-              <span class="breakdown-value">{{ formatTime(result.timeSpent) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Распределение по категориям (если есть) -->
-        <div v-if="categories.length" class="categories-section">
-          <h2 class="section-title">Результаты по темам</h2>
-
-          <div class="categories-grid">
-            <div v-for="cat in categories" :key="cat.name" class="category-card">
-              <div class="category-header">
-                <h3 class="category-name">{{ cat.name }}</h3>
-                <span class="category-score">{{ cat.correct }}/{{ cat.total }}</span>
-              </div>
-              <div class="category-progress">
-                <div class="progress-bar">
-                  <div
-                      class="progress-fill"
-                      :style="{ width: cat.percentage + '%' }"
-                      :class="{ 'low': cat.percentage < 50, 'medium': cat.percentage >= 50 && cat.percentage < 80, 'high': cat.percentage >= 80 }"
-                  ></div>
-                </div>
-                <span class="category-percentage">{{ cat.percentage }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Кнопки действий -->
-        <div class="results-actions">
-          <button @click="reviewTest" class="btn btn-primary btn-large">
-            Разобрать ошибки
-          </button>
-          <button @click="retakeTest" class="btn btn-outline btn-large">
-            Пройти заново
-          </button>
-          <button @click="backToCatalog" class="btn btn-link">
+        <!-- Ошибка загрузки -->
+        <div v-else-if="error" class="error-state">
+          <p class="error-icon">❌</p>
+          <h3>Ошибка загрузки</h3>
+          <p>{{ error }}</p>
+          <button @click="backToCatalog" class="btn btn-primary">
             Вернуться к каталогу
           </button>
         </div>
 
-        <!-- Информация о сертификате (если тест пройден) -->
-        <div v-if="result.passed" class="certificate-note">
-          <p>🎉 Поздравляем! Вы успешно прошли тест.</p>
-          <button @click="downloadCertificate" class="btn btn-outline">
-            Скачать сертификат
+        <!-- Результаты не найдены -->
+        <div v-else-if="!attempt" class="empty-state">
+          <p class="empty-icon">📊</p>
+          <h3>Результаты не найдены</h3>
+          <p>У вас нет завершенных попыток этого теста</p>
+          <button @click="backToCatalog" class="btn btn-primary">
+            Вернуться к каталогу
           </button>
         </div>
+
+        <template v-else>
+          <!-- Хлебные крошки -->
+          <div class="breadcrumbs">
+            <a href="/tests" class="breadcrumb-link">Каталог тестов</a>
+            <span class="breadcrumb-separator">/</span>
+            <a :href="`/test/${testId}`" class="breadcrumb-link">{{ test?.title || 'Тест' }}</a>
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-current">Результаты</span>
+          </div>
+
+          <!-- Заголовок -->
+          <div class="results-header">
+            <h1 class="results-title">{{ test?.title || 'Тест' }}</h1>
+            <p class="results-subtitle">Результаты тестирования</p>
+          </div>
+
+          <!-- Основные показатели -->
+          <div class="score-overview">
+            <div class="score-card main-score">
+              <div class="score-circle" :style="{ '--percentage': attempt.score || 0 }">
+                <div class="circle-inner">
+                  <span class="score-value">{{ attempt.score || 0 }}%</span>
+                  <span class="score-label">общий результат</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="score-stats-grid">
+              <div class="stat-card">
+                <span class="stat-icon">✓</span>
+                <div class="stat-content">
+                  <span class="stat-value">{{ attempt.correct_answers || 0 }}/{{ attempt.total_questions || 0 }}</span>
+                  <span class="stat-label">правильных ответов</span>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <span class="stat-icon">⏱️</span>
+                <div class="stat-content">
+                  <span class="stat-value">{{ formatTime(attempt.time_spent || 0) }}</span>
+                  <span class="stat-label">время выполнения</span>
+                </div>
+              </div>
+
+              <div class="stat-card">
+                <span class="stat-icon">⚑</span>
+                <div class="stat-content">
+                  <span class="stat-value">{{ flaggedCount }}</span>
+                  <span class="stat-label">отмеченных вопросов</span>
+                </div>
+              </div>
+
+              <div class="stat-card" :class="{ 'success': isPassed, 'fail': !isPassed }">
+                <span class="stat-icon">{{ isPassed ? '🏆' : '📝' }}</span>
+                <div class="stat-content">
+                  <span class="stat-value">{{ isPassed ? 'Пройден' : 'Не пройден' }}</span>
+                  <span class="stat-label">проходной балл {{ test?.passing_score || 70 }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Детальная статистика -->
+          <div class="detailed-stats">
+            <h2 class="section-title">Детальная статистика</h2>
+
+            <div class="stats-breakdown">
+              <div class="breakdown-item">
+                <span class="breakdown-label">Всего вопросов:</span>
+                <span class="breakdown-value">{{ attempt.total_questions || 0 }}</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">Правильных ответов:</span>
+                <span class="breakdown-value correct">{{ attempt.correct_answers || 0 }}</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">Неправильных ответов:</span>
+                <span class="breakdown-value incorrect">{{ incorrectAnswers }}</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">Пропущено вопросов:</span>
+                <span class="breakdown-value skipped">{{ skippedAnswers }}</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">Точность:</span>
+                <span class="breakdown-value">{{ accuracy }}%</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">Затрачено времени:</span>
+                <span class="breakdown-value">{{ formatTime(attempt.time_spent || 0) }}</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">Дата завершения:</span>
+                <span class="breakdown-value">{{ formatDate(attempt.completed_at) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Распределение по категориям (если есть) -->
+          <div v-if="categories.length > 0" class="categories-section">
+            <h2 class="section-title">Результаты по темам</h2>
+
+            <div class="categories-grid">
+              <div v-for="cat in categories" :key="cat.name" class="category-card">
+                <div class="category-header">
+                  <h3 class="category-name">{{ cat.name }}</h3>
+                  <span class="category-score">{{ cat.correct }}/{{ cat.total }}</span>
+                </div>
+                <div class="category-progress">
+                  <div class="progress-bar">
+                    <div
+                        class="progress-fill"
+                        :style="{ width: cat.percentage + '%' }"
+                        :class="{ 'low': cat.percentage < 50, 'medium': cat.percentage >= 50 && cat.percentage < 80, 'high': cat.percentage >= 80 }"
+                    ></div>
+                  </div>
+                  <span class="category-percentage">{{ cat.percentage }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Кнопки действий -->
+          <div class="results-actions">
+            <button @click="reviewTest" class="btn btn-primary btn-large">
+              Разобрать ошибки
+            </button>
+            <button @click="retakeTest" class="btn btn-outline btn-large">
+              Пройти заново
+            </button>
+            <button @click="backToCatalog" class="btn btn-link">
+              Вернуться к каталогу
+            </button>
+          </div>
+
+          <!-- Информация о сертификате (если тест пройден) -->
+          <div v-if="isPassed" class="certificate-note">
+            <p>🎉 Поздравляем! Вы успешно прошли тест.</p>
+            <button @click="downloadCertificate" class="btn btn-outline">
+              Скачать сертификат
+            </button>
+          </div>
+        </template>
       </div>
     </main>
 
@@ -152,6 +184,7 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
 import AppNavigation from '../components/navigation'
 import AppFooter from '../components/footer'
 
@@ -164,57 +197,275 @@ export default {
   data() {
     return {
       testId: null,
-      test: {
-        id: 1,
-        title: 'Основы JavaScript',
-        passingScore: 70
-      },
-      result: {
-        scorePercentage: 84,
-        correctAnswers: 21,
-        incorrectAnswers: 3,
-        skippedAnswers: 1,
-        totalQuestions: 25,
-        timeSpent: 1380, // в секундах
-        flaggedCount: 2,
-        passed: true,
-        accuracy: 84
-      },
-      categories: [
-        { name: 'Переменные и типы', correct: 5, total: 6, percentage: 83 },
-        { name: 'Функции', correct: 7, total: 8, percentage: 88 },
-        { name: 'Объекты и массивы', correct: 4, total: 5, percentage: 80 },
-        { name: 'Асинхронность', correct: 3, total: 4, percentage: 75 },
-        { name: 'Ошибки и исключения', correct: 2, total: 2, percentage: 100 }
-      ]
+      attemptId: null,
+      loading: true,
+      error: null,
+
+      test: null,
+      attempt: null,
+      answers: [],
+      questions: [],
+      categories: [],
+
+      flaggedCount: 0
     }
   },
-  created() {
+  computed: {
+    isPassed() {
+      if (!this.attempt || !this.test) return false
+      return (this.attempt.score || 0) >= (this.test.passing_score || 70)
+    },
+
+    incorrectAnswers() {
+      if (!this.attempt) return 0
+      return (this.attempt.total_questions || 0) - (this.attempt.correct_answers || 0)
+    },
+
+    skippedAnswers() {
+      if (!this.attempt || !this.questions.length) return 0
+      const answeredQuestions = new Set(this.answers.map(a => a.question_id))
+      return this.questions.length - answeredQuestions.size
+    },
+
+    accuracy() {
+      if (!this.attempt || !this.attempt.total_questions) return 0
+      return Math.round((this.attempt.correct_answers / this.attempt.total_questions) * 100)
+    }
+  },
+  async created() {
     this.testId = this.$route.params.id
-    this.loadResults()
+    await this.loadResults()
   },
   methods: {
-    loadResults() {
-      // Загружаем результаты из localStorage или API
-      const saved = localStorage.getItem(`test_result_${this.testId}`)
-      if (saved) {
-        try {
-          const data = JSON.parse(saved)
-          this.result = { ...this.result, ...data }
-        } catch (e) {
-          console.error('Failed to load results:', e)
+    async loadResults() {
+      this.loading = true
+      this.error = null
+
+      try {
+        // Получаем текущего пользователя
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+        if (userError) throw userError
+        if (!user) {
+          this.$router.push('/login')
+          return
+        }
+
+        // Сначала пробуем загрузить из localStorage (для несохраненных результатов)
+        const savedResult = localStorage.getItem(`test_result_${this.testId}`)
+        if (savedResult) {
+          try {
+            const localData = JSON.parse(savedResult)
+            // Используем локальные данные, если они есть
+            this.attempt = {
+              score: localData.score || 0,
+              correct_answers: localData.correct || 0,
+              total_questions: localData.totalQuestions || 0,
+              time_spent: localData.timeSpent || 0,
+              completed_at: new Date().toISOString()
+            }
+
+            // Загружаем информацию о тесте
+            await this.loadTestInfo()
+
+            // Загружаем вопросы
+            await this.loadQuestions()
+
+            this.loading = false
+            return
+          } catch (e) {
+            console.warn('Failed to parse local results:', e)
+          }
+        }
+
+        // Если нет локальных данных, загружаем из БД
+        // Получаем последнюю завершенную попытку
+        const { data: attempts, error: attemptsError } = await supabase
+            .from('attempts')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('test_id', this.testId)
+            .eq('status', 'completed')
+            .order('completed_at', { ascending: false })
+            .limit(1)
+
+        if (attemptsError) throw attemptsError
+
+        if (!attempts || attempts.length === 0) {
+          // Если нет завершенных попыток, проверяем есть ли незавершенные
+          const { data: inProgressAttempt, error: inProgressError } = await supabase
+              .from('attempts')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('test_id', this.testId)
+              .eq('status', 'in_progress')
+              .maybeSingle()
+
+          if (inProgressError) throw inProgressError
+
+          if (inProgressAttempt) {
+            // Если есть незавершенная попытка, предлагаем завершить
+            this.$router.push(`/test/${this.testId}/take`)
+            return
+          }
+
+          // Если попыток нет, показываем пустое состояние
+          this.attempt = null
+          this.loading = false
+          return
+        }
+
+        this.attempt = attempts[0]
+        this.attemptId = this.attempt.id
+
+        // Загружаем информацию о тесте
+        await this.loadTestInfo()
+
+        // Загружаем вопросы
+        await this.loadQuestions()
+
+        // Загружаем ответы пользователя
+        await this.loadAnswers()
+
+        // Загружаем количество отмеченных вопросов из localStorage
+        this.loadFlaggedCount()
+
+        // Генерируем категории (если есть информация о категориях вопросов)
+        await this.generateCategories()
+
+      } catch (error) {
+        console.error('Error loading results:', error)
+        this.error = error.message || 'Не удалось загрузить результаты'
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadTestInfo() {
+      try {
+        const { data, error } = await supabase
+            .from('tests')
+            .select('*')
+            .eq('id', this.testId)
+            .single()
+
+        if (error) throw error
+        this.test = data
+      } catch (error) {
+        console.error('Error loading test info:', error)
+        this.test = {
+          id: this.testId,
+          title: 'Тест',
+          passing_score: 70
         }
       }
     },
 
+    async loadQuestions() {
+      try {
+        const { data, error } = await supabase
+            .from('questions')
+            .select(`
+              id,
+              text,
+              type,
+              difficulty,
+              options (*)
+            `)
+            .eq('test_id', this.testId)
+            .order('order', { ascending: true })
+console.log(data)
+        if (error) throw error
+        this.questions = data || []
+      } catch (error) {
+        console.log('asldkfm')
+        console.error('Error loading questions:', error)
+        this.questions = []
+      }
+    },
+
+    async loadAnswers() {
+      if (!this.attemptId) return
+
+      try {
+        const { data, error } = await supabase
+            .from('answers')
+            .select('*')
+            .eq('attempt_id', this.attemptId)
+
+        if (error) throw error
+        this.answers = data || []
+      } catch (error) {
+        console.error('Error loading answers:', error)
+        this.answers = []
+      }
+    },
+
+    loadFlaggedCount() {
+      try {
+        const saved = localStorage.getItem(`test_${this.testId}`)
+        if (saved) {
+          const state = JSON.parse(saved)
+          this.flaggedCount = state.flaggedQuestions?.length || 0
+        }
+      } catch (e) {
+        console.warn('Failed to load flagged count:', e)
+        this.flaggedCount = 0
+      }
+    },
+
+    async generateCategories() {
+      // Группируем вопросы по категориям
+      const categoryMap = new Map()
+
+      this.questions.forEach(question => {
+        const category = question.category || 'Без категории'
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, {
+            name: category,
+            total: 0,
+            correct: 0
+          })
+        }
+
+        const cat = categoryMap.get(category)
+        cat.total++
+
+        // Проверяем, правильный ли ответ на этот вопрос
+        const answer = this.answers.find(a => a.question_id === question.id)
+        if (answer?.is_correct) {
+          cat.correct++
+        }
+      })
+
+      // Преобразуем в массив и вычисляем проценты
+      this.categories = Array.from(categoryMap.values()).map(cat => ({
+        ...cat,
+        percentage: Math.round((cat.correct / cat.total) * 100) || 0
+      }))
+    },
+
     formatTime(seconds) {
+      if (!seconds) return '0 мин 0 сек'
       const mins = Math.floor(seconds / 60)
       const secs = seconds % 60
       return `${mins} мин ${secs} сек`
     },
 
+    formatDate(dateString) {
+      if (!dateString) return '—'
+      const date = new Date(dateString)
+      return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    },
+
     reviewTest() {
-      this.$router.push(`/test/${this.testId}/review`)
+      this.$router.push(`/test/${this.testId}/reports`)
     },
 
     retakeTest() {
@@ -228,9 +479,38 @@ export default {
       this.$router.push('/tests')
     },
 
-    downloadCertificate() {
-      console.log('Downloading certificate...')
-      // Здесь будет логика скачивания сертификата
+    async downloadCertificate() {
+      try {
+        // Получаем информацию о пользователе
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) return
+
+        // Получаем профиль пользователя
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', user.id)
+            .single()
+
+        // Формируем данные для сертификата
+        const certificateData = {
+          studentName: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Студент',
+          testName: this.test?.title || 'Тест',
+          score: this.attempt?.score || 0,
+          date: this.formatDate(this.attempt?.completed_at),
+          certificateId: `CERT-${this.testId}-${Date.now()}`
+        }
+
+        console.log('Downloading certificate:', certificateData)
+
+        // Здесь будет реальная генерация PDF
+        alert('Функция скачивания сертификата будет доступна в ближайшее время')
+
+      } catch (error) {
+        console.error('Error generating certificate:', error)
+        alert('Не удалось сгенерировать сертификат')
+      }
     }
   }
 }
@@ -251,6 +531,52 @@ export default {
   max-width: 800px;
   margin: 0 auto;
   padding: 0 24px;
+}
+
+/* Состояния загрузки и ошибок */
+.loading-state,
+.error-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  padding: 40px;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #eee;
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+
+.error-icon,
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.error-state h3,
+.empty-state h3 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+
+.error-state p,
+.empty-state p {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Хлебные крошки */

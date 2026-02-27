@@ -4,13 +4,13 @@
     <header class="test-header">
       <div class="header-container">
         <div class="header-left">
-          <a href="/tests" class="back-link">
+          <button @click="confirmExit" class="back-link">
             <span class="back-icon">←</span>
             <span class="back-text">Выйти</span>
-          </a>
+          </button>
           <div class="test-info">
-            <h1 class="test-title">{{ test.title }}</h1>
-            <span class="test-category">{{ test.category }}</span>
+            <h1 class="test-title">{{ test.title || 'Загрузка...' }}</h1>
+            <span class="test-category">{{ test.category || 'Без категории' }}</span>
           </div>
         </div>
 
@@ -22,10 +22,11 @@
 
           <div class="progress-indicator">
             <span class="progress-text">
-              {{ currentQuestionIndex + 1 }} / {{ test.questions }}
+              {{ currentQuestionIndex + 1 }} / {{ test.questionsCount }}
             </span>
             <div class="progress-bar">
               <div
+                  v-if="test.questionsCount > 0"
                   class="progress-fill"
                   :style="{ width: progressPercentage + '%' }"
               ></div>
@@ -37,31 +38,53 @@
 
     <!-- Основная область теста -->
     <main class="test-main">
-      <div class="test-container">
+      <div v-if="loading" class="loading-state">
+        <div class="loader"></div>
+        <p>Загрузка теста...</p>
+      </div>
+
+      <div v-else-if="error" class="error-state">
+        <p class="error-icon">❌</p>
+        <h3>Ошибка загрузки</h3>
+        <p>{{ error }}</p>
+        <button @click="$router.push('/tests')" class="btn btn-primary">
+          Вернуться к каталогу
+        </button>
+      </div>
+
+      <div v-else-if="test.questionsList.length === 0" class="empty-state">
+        <p class="empty-icon">📝</p>
+        <h3>В тесте нет вопросов</h3>
+        <button @click="$router.push('/tests')" class="btn btn-primary">
+          Вернуться к каталогу
+        </button>
+      </div>
+
+      <div v-else class="test-container">
         <!-- Боковая панель с навигацией по вопросам -->
         <aside class="questions-sidebar">
           <div class="sidebar-header">
             <h3>Вопросы</h3>
-            <span class="answered-count">{{ answeredCount }}/{{ test.questions }} отвечено</span>
+            <span class="answered-count">{{ answeredCount }}/{{ test.questionsCount }} отвечено</span>
           </div>
 
           <!-- Компактный список вопросов -->
           <div class="questions-compact-list">
             <div class="questions-header">
               <span class="questions-title">Вопросы</span>
-              <span class="questions-count">{{ answeredCount }}/{{ test.questions }}</span>
+              <span class="questions-count">{{ answeredCount }}/{{ test.questionsCount }}</span>
             </div>
 
             <div class="questions-scroll">
               <button
                   v-for="(q, index) in test.questionsList"
-                  :key="index"
+                  :key="q?.id || index"
                   class="question-chip"
                   :class="{
-        'current': currentQuestionIndex === index,
-        'answered': isQuestionAnswered(index),
-        'flagged': isQuestionFlagged(index)
-      }"
+                    'current': currentQuestionIndex === index,
+                    'answered': isQuestionAnswered(index),
+                    'flagged': isQuestionFlagged(index)
+                  }"
                   @click="goToQuestion(index)"
               >
                 <span class="chip-number">{{ index + 1 }}</span>
@@ -93,7 +116,7 @@
           <!-- Прогресс по вопросу (для мобильных) -->
           <div class="mobile-progress">
             <span class="mobile-question-count">
-              Вопрос {{ currentQuestionIndex + 1 }} из {{ test.questions }}
+              Вопрос {{ currentQuestionIndex + 1 }} из {{ test.questionsCount }}
             </span>
             <div class="progress-bar">
               <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
@@ -101,7 +124,7 @@
           </div>
 
           <!-- Карточка вопроса -->
-          <div class="question-card">
+          <div v-if="currentQuestion" class="question-card">
             <div class="question-header">
               <span class="question-type">{{ questionTypeLabel }}</span>
               <button
@@ -122,20 +145,20 @@
               <div v-if="currentQuestion.type === 'single'" class="answers-list">
                 <label
                     v-for="(option, idx) in currentQuestion.options"
-                    :key="idx"
+                    :key="option?.id || idx"
                     class="answer-option"
                     :class="{ 'selected': isOptionSelected(currentQuestionIndex, idx) }"
                 >
                   <input
                       type="radio"
-                      :name="'question-' + currentQuestionIndex"
-                      :value="idx"
+                      :name="'question-' + currentQuestion.id"
+                      :value="option?.id"
                       :checked="isOptionSelected(currentQuestionIndex, idx)"
                       @change="selectOption(currentQuestionIndex, idx)"
                       class="answer-input"
                   />
                   <span class="answer-marker"></span>
-                  <span class="answer-text">{{ option }}</span>
+                  <span class="answer-text">{{ option?.text || 'Вариант ответа' }}</span>
                 </label>
               </div>
 
@@ -143,58 +166,32 @@
               <div v-else-if="currentQuestion.type === 'multiple'" class="answers-list">
                 <label
                     v-for="(option, idx) in currentQuestion.options"
-                    :key="idx"
+                    :key="option?.id || idx"
                     class="answer-option"
                     :class="{ 'selected': isOptionSelected(currentQuestionIndex, idx) }"
                 >
                   <input
                       type="checkbox"
-                      :name="'question-' + currentQuestionIndex + '-' + idx"
-                      :value="idx"
+                      :name="'question-' + currentQuestion.id + '-' + idx"
+                      :value="option?.id"
                       :checked="isOptionSelected(currentQuestionIndex, idx)"
                       @change="toggleOption(currentQuestionIndex, idx)"
                       class="answer-input"
                   />
                   <span class="answer-marker"></span>
-                  <span class="answer-text">{{ option }}</span>
+                  <span class="answer-text">{{ option?.text || 'Вариант ответа' }}</span>
                 </label>
               </div>
 
               <!-- Текстовый ответ -->
               <div v-else-if="currentQuestion.type === 'text'" class="text-answer">
                 <textarea
-                    v-model="textAnswers[currentQuestionIndex]"
-                    @input="saveTextAnswer(currentQuestionIndex, $event.target.value)"
+                    v-model="textAnswers[currentQuestion.id]"
+                    @input="saveTextAnswer(currentQuestion.id, $event.target.value)"
                     placeholder="Введите ваш ответ..."
                     rows="6"
                     class="text-input"
                 ></textarea>
-              </div>
-
-              <!-- Сопоставление (match) - упрощенная версия -->
-              <div v-else-if="currentQuestion.type === 'match'" class="match-answer">
-                <p class="match-note">Выберите правильные соответствия:</p>
-                <div
-                    v-for="(pair, idx) in currentQuestion.matchPairs"
-                    :key="idx"
-                    class="match-pair"
-                >
-                  <span class="match-left">{{ pair.left }}</span>
-                  <select
-                      v-model="matchAnswers[currentQuestionIndex][idx]"
-                      @change="saveMatchAnswer"
-                      class="match-select"
-                  >
-                    <option value="">Выберите...</option>
-                    <option
-                        v-for="(right, rightIdx) in currentQuestion.matchOptions"
-                        :key="rightIdx"
-                        :value="right"
-                    >
-                      {{ right }}
-                    </option>
-                  </select>
-                </div>
               </div>
             </div>
 
@@ -227,7 +224,7 @@
 
             <button
                 @click="nextQuestion"
-                :disabled="currentQuestionIndex === test.questions - 1"
+                :disabled="currentQuestionIndex === test.questionsCount - 1"
                 class="nav-btn next"
             >
               Следующий →
@@ -255,11 +252,11 @@
         <div class="modal-stats">
           <div class="modal-stat">
             <span class="modal-stat-label">Отвечено</span>
-            <span class="modal-stat-value">{{ answeredCount }}/{{ test.questions }}</span>
+            <span class="modal-stat-value">{{ answeredCount }}/{{ test.questionsCount }}</span>
           </div>
           <div class="modal-stat">
             <span class="modal-stat-label">Не отвечено</span>
-            <span class="modal-stat-value">{{ test.questions - answeredCount }}</span>
+            <span class="modal-stat-value">{{ test.questionsCount - answeredCount }}</span>
           </div>
           <div class="modal-stat">
             <span class="modal-stat-label">Отмечено</span>
@@ -267,7 +264,7 @@
           </div>
         </div>
 
-        <div v-if="test.questions - answeredCount > 0" class="modal-warning">
+        <div v-if="test.questionsCount - answeredCount > 0" class="modal-warning">
           <span class="warning-icon">⚠️</span>
           <span>У вас остались неотвеченные вопросы</span>
         </div>
@@ -296,137 +293,249 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
+
 export default {
   name: 'TestTaking',
   data() {
     return {
       testId: null,
+      attemptId: null,
       currentQuestionIndex: 0,
-      answers: {}, // { questionIndex: selectedOptionIndex или массив индексов }
-      textAnswers: {}, // { questionIndex: text }
-      matchAnswers: {}, // { questionIndex: { pairIndex: selectedValue } }
+      answers: {},
+      textAnswers: {},
       flaggedQuestions: new Set(),
-      timeRemaining: 1800, // 30 минут в секундах
+      timeRemaining: 0,
       timerInterval: null,
       showHint: false,
       showFinishConfirm: false,
       showExitConfirm: false,
+      loading: true,
+      saving: false,
+      error: null,
 
-      // Данные теста (в реальном проекте загружаются с API)
       test: {
-        id: 1,
-        title: 'Основы JavaScript',
-        category: 'Программирование',
-        questions: 25,
-        time: 30,
-        questionsList: [
-          {
-            id: 1,
-            type: 'single',
-            text: 'Какое ключевое слово используется для объявления переменной в JavaScript?',
-            options: ['var', 'let', 'const', 'Все вышеперечисленные'],
-            hint: 'В современных стандартах ES6 появились новые способы объявления переменных'
-          },
-          {
-            id: 2,
-            type: 'single',
-            text: 'Что выведет console.log(typeof [])?',
-            options: ['array', 'object', 'undefined', 'null'],
-            hint: 'В JavaScript массивы являются особым типом объектов'
-          },
-          {
-            id: 3,
-            type: 'multiple',
-            text: 'Какие из следующих значений являются falsy в JavaScript?',
-            options: ['0', '"" (пустая строка)', 'null', 'undefined', 'NaN', 'false', '[] (пустой массив)'],
-            hint: 'Falsy значения преобразуются в false в булевом контексте'
-          },
-          {
-            id: 4,
-            type: 'text',
-            text: 'Объясните разницу между == и === в JavaScript.',
-            hint: 'Один оператор сравнивает с приведением типов, другой без'
-          },
-          {
-            id: 5,
-            type: 'single',
-            text: 'Что такое замыкание (closure) в JavaScript?',
-            options: [
-              'Функция, которая имеет доступ к переменным внешней функции',
-              'Способ объявления приватных переменных',
-              'Метод для работы с массивами',
-              'Тип данных'
-            ],
-            hint: 'Это комбинация функции и лексического окружения'
-          }
-        ]
+        id: null,
+        title: '',
+        category: '',
+        description: '',
+        time_limit: 0,
+        passing_score: 70,
+        questionsCount: 0,
+        questionsList: []
       }
     }
   },
   computed: {
     currentQuestion() {
-      return this.test.questionsList[this.currentQuestionIndex]
+      return this.test.questionsList?.[this.currentQuestionIndex]
     },
-
     questionTypeLabel() {
+      if (!this.currentQuestion) return 'Вопрос'
       const types = {
         'single': 'Один вариант',
         'multiple': 'Несколько вариантов',
-        'text': 'Развернутый ответ',
-        'match': 'Сопоставление'
+        'text': 'Развернутый ответ'
       }
       return types[this.currentQuestion.type] || 'Вопрос'
     },
-
     questionTypeClass() {
-      return `type-${this.currentQuestion.type}`
+      return `type-${this.currentQuestion?.type || 'unknown'}`
     },
-
     progressPercentage() {
-      return ((this.currentQuestionIndex + 1) / this.test.questions) * 100
+      if (!this.test.questionsCount) return 0
+      return ((this.currentQuestionIndex + 1) / this.test.questionsCount) * 100
     },
-
     answeredCount() {
+      if (!this.test.questionsList?.length) return 0
       let count = 0
-      for (let i = 0; i < this.test.questionsList.length; i++) {
-        if (this.isQuestionAnswered(i)) count++
+      for (const question of this.test.questionsList) {
+        if (question?.id && this.isQuestionAnsweredById(question.id)) count++
       }
       return count
     },
-
     flaggedCount() {
       return this.flaggedQuestions.size
     }
   },
-  created() {
+  async created() {
     this.testId = this.$route.params.id
-    this.loadTest()
-    this.startTimer()
-
-    // Предупреждение при попытке закрыть страницу
-    window.addEventListener('beforeunload', this.handleBeforeUnload)
-  },
-  mounted() {
-    // Загружаем сохраненные ответы из localStorage (если есть)
-    this.loadSavedAnswers()
+    await this.initTest()
   },
   beforeDestroy() {
     this.stopTimer()
     window.removeEventListener('beforeunload', this.handleBeforeUnload)
-    this.saveAnswers()
   },
   methods: {
-    loadTest() {
-      console.log('Loading test:', this.testId)
-      // В реальном проекте загрузка с API
+    async initTest() {
+      try {
+        await this.loadTest()
+        if (this.test.questionsList?.length > 0) {
+          await this.createOrGetAttempt()
+          this.startTimer()
+          window.addEventListener('beforeunload', this.handleBeforeUnload)
+        }
+      } catch (error) {
+        console.error('Error initializing test:', error)
+        this.error = 'Не удалось загрузить тест'
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadTest() {
+      this.loading = true
+      try {
+        // Загружаем информацию о тесте
+        const { data: testData, error: testError } = await supabase
+            .from('tests')
+            .select('*')
+            .eq('id', this.testId)
+            .single()
+
+        console.log('testData', testData)
+
+        if (testError) throw testError
+        if (!testData) throw new Error('Тест не найден')
+
+        // Загружаем вопросы теста
+        const { data: questionsData, error: questionsError } = await supabase
+            .from('questions')
+            .select(`
+              *,
+              options (*)
+            `)
+            .eq('test_id', this.testId)
+            .order('order', { ascending: true })
+
+        console.log('questionsData', questionsData)
+
+
+        if (questionsError) throw questionsError
+
+        // Форматируем данные
+        this.test = {
+          id: testData.id,
+          title: testData.title || 'Без названия',
+          category: testData.category || 'Без категории',
+          description: testData.description || '',
+          time_limit: testData.time_limit || 30,
+          passing_score: testData.passing_score || 70,
+          questionsCount: questionsData?.length || 0,
+          questionsList: (questionsData || []).map(q => ({
+            id: q.id,
+            type: q.type || 'single',
+            text: q.text || '',
+            hint: q.hint || '',
+            options: (q.options || []).sort((a, b) => a.order - b.order).map(o => ({
+              id: o.id,
+              text: o.text || '',
+              is_correct: o.is_correct || false
+            }))
+          }))
+        }
+
+        this.timeRemaining = (this.test.time_limit || 30) * 60
+        await this.loadSavedAnswers()
+
+      } catch (error) {
+        console.error('Error loading test:', error)
+        this.error = error.message
+        this.$router.push('/tests')
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async createOrGetAttempt() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+          this.$router.push('/login')
+          return
+        }
+
+        // Проверяем, есть ли уже активная попытка
+        const { data: existingAttempts, error: checkError } = await supabase
+            .from('attempts')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('test_id', this.testId)
+            .eq('status', 'in_progress')
+            .maybeSingle()
+
+        if (checkError && checkError.code !== 'PGRST116') throw checkError
+
+        if (existingAttempts) {
+          // Используем существующую попытку
+          this.attemptId = existingAttempts.id
+          const elapsedSeconds = Math.floor((Date.now() - new Date(existingAttempts.started_at).getTime()) / 1000)
+          this.timeRemaining = Math.max(0, (this.test.time_limit * 60) - elapsedSeconds)
+        } else {
+          // Создаем новую попытку
+          const { data: newAttempt, error: createError } = await supabase
+              .from('attempts')
+              .insert([{
+                user_id: user.id,
+                test_id: this.testId,
+                status: 'in_progress',
+                started_at: new Date().toISOString()
+              }])
+              .select()
+              .single()
+
+          if (createError) throw createError
+          this.attemptId = newAttempt.id
+        }
+
+        // Загружаем сохраненные ответы после получения attemptId
+        await this.loadAnswersFromDB()
+
+      } catch (error) {
+        console.error('Error with attempt:', error)
+        // Если RLS блокирует, продолжаем работу с localStorage
+        console.log('Continuing with localStorage only')
+      }
+    },
+
+    async loadAnswersFromDB() {
+      if (!this.attemptId) return
+
+      try {
+        const { data: answers, error } = await supabase
+            .from('answers')
+            .select('*')
+            .eq('attempt_id', this.attemptId)
+
+        if (error) {
+          console.warn('Could not load answers from DB:', error.message)
+          return
+        }
+
+        answers?.forEach(answer => {
+          if (answer.answer_data?.selected) {
+            if (Array.isArray(answer.answer_data.selected)) {
+              this.$set(this.answers, answer.question_id, answer.answer_data.selected)
+            } else {
+              this.$set(this.answers, answer.question_id, answer.answer_data.selected)
+            }
+          } else if (answer.answer_data?.text) {
+            this.$set(this.textAnswers, answer.question_id, answer.answer_data.text)
+          }
+        })
+      } catch (error) {
+        console.warn('Error loading answers from DB:', error)
+      }
     },
 
     startTimer() {
+      if (this.timerInterval) clearInterval(this.timerInterval)
       this.timerInterval = setInterval(() => {
         if (this.timeRemaining > 0) {
           this.timeRemaining--
+          this.saveToLocalStorage()
         } else {
-          // Время вышло - автоматически завершаем тест
           this.finishTest()
         }
       }, 1000)
@@ -435,6 +544,7 @@ export default {
     stopTimer() {
       if (this.timerInterval) {
         clearInterval(this.timerInterval)
+        this.timerInterval = null
       }
     },
 
@@ -444,118 +554,149 @@ export default {
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     },
 
-    // Навигация по вопросам
     goToQuestion(index) {
-      this.saveCurrentAnswer()
-      this.currentQuestionIndex = index
-      this.showHint = false
+      if (index >= 0 && index < this.test.questionsList.length) {
+        this.currentQuestionIndex = index
+        this.showHint = false
+      }
     },
 
     previousQuestion() {
       if (this.currentQuestionIndex > 0) {
-        this.saveCurrentAnswer()
         this.currentQuestionIndex--
         this.showHint = false
       }
     },
 
     nextQuestion() {
-      if (this.currentQuestionIndex < this.test.questions - 1) {
-        this.saveCurrentAnswer()
+      if (this.currentQuestionIndex < this.test.questionsList.length - 1) {
         this.currentQuestionIndex++
         this.showHint = false
       }
     },
 
-    // Работа с ответами
     isQuestionAnswered(index) {
       const question = this.test.questionsList[index]
+      return question?.id ? this.isQuestionAnsweredById(question.id) : false
+    },
+
+    isQuestionAnsweredById(questionId) {
+      if (!questionId) return false
+      const question = this.test.questionsList.find(q => q.id === questionId)
+      if (!question) return false
 
       if (question.type === 'text') {
-        return this.textAnswers[index] && this.textAnswers[index].trim() !== ''
-      } else if (question.type === 'match') {
-        const answers = this.matchAnswers[index]
-        if (!answers) return false
-        return Object.values(answers).every(v => v && v !== '')
+        return this.textAnswers[questionId]?.trim()?.length > 0
       } else if (question.type === 'multiple') {
-        const answer = this.answers[index]
+        const answer = this.answers[questionId]
         return answer && Array.isArray(answer) && answer.length > 0
       } else {
-        // single
-        return this.answers[index] !== undefined
+        return this.answers[questionId] !== undefined
       }
     },
 
     isOptionSelected(questionIndex, optionIndex) {
       const question = this.test.questionsList[questionIndex]
+      if (!question) return false
+
+      const option = question.options?.[optionIndex]
+      if (!option) return false
 
       if (question.type === 'multiple') {
-        const answer = this.answers[questionIndex]
-        return answer && Array.isArray(answer) && answer.includes(optionIndex)
+        const answer = this.answers[question.id]
+        return answer && Array.isArray(answer) && answer.includes(option.id)
       } else {
-        return this.answers[questionIndex] === optionIndex
+        return this.answers[question.id] === option.id
       }
     },
 
     selectOption(questionIndex, optionIndex) {
-      // Для single - просто устанавливаем значение
-      this.$set(this.answers, questionIndex, optionIndex)
-      this.saveAnswers()
+      const question = this.test.questionsList[questionIndex]
+      if (!question) return
+
+      const option = question.options?.[optionIndex]
+      if (!option) return
+
+      this.$set(this.answers, question.id, option.id)
+      this.saveAnswer(question.id, { selected: option.id })
     },
 
     toggleOption(questionIndex, optionIndex) {
-      // Для multiple - работаем с массивом
-      if (!this.answers[questionIndex]) {
-        this.$set(this.answers, questionIndex, [])
+      const question = this.test.questionsList[questionIndex]
+      if (!question) return
+
+      const option = question.options?.[optionIndex]
+      if (!option) return
+
+      if (!this.answers[question.id]) {
+        this.$set(this.answers, question.id, [])
       }
 
-      const currentAnswers = this.answers[questionIndex]
-      const index = currentAnswers.indexOf(optionIndex)
+      const currentAnswers = [...(this.answers[question.id] || [])]
+      const index = currentAnswers.indexOf(option.id)
 
       if (index === -1) {
-        currentAnswers.push(optionIndex)
+        currentAnswers.push(option.id)
       } else {
         currentAnswers.splice(index, 1)
       }
 
-      this.saveAnswers()
+      this.$set(this.answers, question.id, currentAnswers)
+      this.saveAnswer(question.id, { selected: currentAnswers })
     },
 
-    saveTextAnswer(questionIndex, value) {
-      this.$set(this.textAnswers, questionIndex, value)
-      this.saveAnswers()
+    saveTextAnswer(questionId, value) {
+      if (!questionId) return
+      this.$set(this.textAnswers, questionId, value)
+      this.saveAnswer(questionId, { text: value })
     },
 
-    saveMatchAnswer() {
-      this.saveAnswers()
-    },
+    async saveAnswer(questionId, answerData) {
+      if (!questionId) return
 
-    saveCurrentAnswer() {
-      // Автоматически вызывается при смене вопроса
-      // Все ответы уже сохраняются через v-model и @change
-    },
+      this.saveToLocalStorage()
 
-    // Отметка вопросов
-    toggleFlag(questionIndex) {
-      if (this.flaggedQuestions.has(questionIndex)) {
-        this.flaggedQuestions.delete(questionIndex)
-      } else {
-        this.flaggedQuestions.add(questionIndex)
+      if (!this.attemptId) return
+
+      try {
+        await supabase
+            .from('answers')
+            .upsert({
+              attempt_id: this.attemptId,
+              question_id: questionId,
+              answer_data: answerData,
+              created_at: new Date().toISOString()
+            }, {
+              onConflict: 'attempt_id,question_id',
+              ignoreDuplicates: false
+            })
+      } catch (error) {
+        console.warn('Could not save answer to DB:', error.message)
       }
-      // Форсируем обновление computed свойств
+    },
+
+    toggleFlag(questionIndex) {
+      const question = this.test.questionsList[questionIndex]
+      if (!question) return
+
+      if (this.flaggedQuestions.has(question.id)) {
+        this.flaggedQuestions.delete(question.id)
+      } else {
+        this.flaggedQuestions.add(question.id)
+      }
       this.flaggedQuestions = new Set(this.flaggedQuestions)
+      this.saveToLocalStorage()
     },
 
     isQuestionFlagged(questionIndex) {
-      return this.flaggedQuestions.has(questionIndex)
+      const question = this.test.questionsList[questionIndex]
+      return question?.id ? this.flaggedQuestions.has(question.id) : false
     },
 
-    // Сохранение и загрузка
-    saveAnswers() {
+    saveToLocalStorage() {
       const state = {
         answers: this.answers,
         textAnswers: this.textAnswers,
-        matchAnswers: this.matchAnswers,
         flaggedQuestions: Array.from(this.flaggedQuestions),
         currentQuestionIndex: this.currentQuestionIndex,
         timeRemaining: this.timeRemaining
@@ -563,14 +704,13 @@ export default {
       localStorage.setItem(`test_${this.testId}`, JSON.stringify(state))
     },
 
-    loadSavedAnswers() {
+    async loadSavedAnswers() {
       const saved = localStorage.getItem(`test_${this.testId}`)
       if (saved) {
         try {
           const state = JSON.parse(saved)
           this.answers = state.answers || {}
           this.textAnswers = state.textAnswers || {}
-          this.matchAnswers = state.matchAnswers || {}
           this.flaggedQuestions = new Set(state.flaggedQuestions || [])
           this.currentQuestionIndex = state.currentQuestionIndex || 0
           this.timeRemaining = state.timeRemaining || this.timeRemaining
@@ -580,47 +720,97 @@ export default {
       }
     },
 
-    // Завершение теста
     confirmFinish() {
       this.showFinishConfirm = true
     },
 
-    finishTest() {
+    async finishTest() {
       this.stopTimer()
-      this.saveAnswers()
 
-      // Расчет результатов
-      const results = this.calculateResults()
+      try {
+        const results = this.calculateResults()
 
-      // Сохраняем результаты и переходим на страницу результатов
-      localStorage.setItem(`test_result_${this.testId}`, JSON.stringify(results))
-      this.$router.push(`/test/${this.testId}/results`)
-    },
+        if (this.attemptId) {
+          try {
+            await supabase
+                .from('attempts')
+                .update({
+                  status: 'completed',
+                  completed_at: new Date().toISOString(),
+                  score: results.score,
+                  correct_answers: results.correct,
+                  total_questions: this.test.questionsCount,
+                  time_spent: (this.test.time_limit * 60) - this.timeRemaining
+                })
+                .eq('id', this.attemptId)
+          } catch (error) {
+            console.warn('Could not save results to DB:', error.message)
+          }
+        }
 
-    calculateResults() {
-      // Здесь будет логика подсчета результатов
-      // В демо-версии возвращаем заглушку
-      return {
-        totalQuestions: this.test.questions,
-        answered: this.answeredCount,
-        correct: Math.floor(this.answeredCount * 0.7), // Заглушка
-        score: 70, // Заглушка
-        timeSpent: 1800 - this.timeRemaining
+        localStorage.setItem(`test_result_${this.testId}`, JSON.stringify(results))
+        localStorage.removeItem(`test_${this.testId}`)
+
+        this.$router.push(`/test/${this.testId}/results`)
+      } catch (error) {
+        console.error('Error finishing test:', error)
       }
     },
 
-    // Выход из теста
+    calculateResults() {
+      let correctCount = 0
+
+      this.test.questionsList.forEach(question => {
+        if (!question) return
+
+        if (question.type === 'single') {
+          const selectedOptionId = this.answers[question.id]
+          const correctOption = question.options.find(o => o.is_correct)
+          if (selectedOptionId && correctOption && selectedOptionId === correctOption.id) {
+            correctCount++
+          }
+        } else if (question.type === 'multiple') {
+          const selectedIds = this.answers[question.id] || []
+          const correctIds = question.options.filter(o => o.is_correct).map(o => o.id)
+
+          const isCorrect = correctIds.length === selectedIds.length &&
+              correctIds.every(id => selectedIds.includes(id))
+          if (isCorrect) correctCount++
+        } else if (question.type === 'text') {
+          if (this.textAnswers[question.id]?.trim()?.length > 0) {
+            correctCount++
+          }
+        }
+      })
+
+      const score = this.test.questionsCount > 0
+          ? Math.round((correctCount / this.test.questionsCount) * 100)
+          : 0
+      const timeSpent = (this.test.time_limit * 60) - this.timeRemaining
+
+      return {
+        totalQuestions: this.test.questionsCount,
+        answered: this.answeredCount,
+        correct: correctCount,
+        incorrect: this.answeredCount - correctCount,
+        skipped: this.test.questionsCount - this.answeredCount,
+        score: score,
+        scorePercentage: score,
+        timeSpent: timeSpent,
+        passed: score >= (this.test.passing_score || 70)
+      }
+    },
+
     confirmExit() {
       this.showExitConfirm = true
     },
 
     exitTest() {
-      // Очищаем сохраненные ответы
+      this.stopTimer()
       localStorage.removeItem(`test_${this.testId}`)
       this.$router.push('/tests')
     },
 
-    // Обработчик закрытия страницы
     handleBeforeUnload(e) {
       if (this.answeredCount > 0) {
         e.preventDefault()
@@ -632,6 +822,76 @@ export default {
 </script>
 
 <style scoped>
+/* Стили для loading-state, error-state, empty-state */
+.loading-state,
+.error-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  padding: 40px;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #eee;
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+
+.error-icon,
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.error-state h3,
+.empty-state h3 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+
+.error-state p,
+.empty-state p {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+}
+
+.loader {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #eee;
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+
 .test-taking {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.6;

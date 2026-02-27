@@ -103,22 +103,22 @@
             <div class="test-meta">
               <div class="meta-item">
                 <span class="meta-icon">⏱️</span>
-                <span>{{ test.questions }} вопросов</span>
+                <span>{{ test.questions_count || test.questions }} вопросов</span>
               </div>
               <div class="meta-item">
                 <span class="meta-icon">🕒</span>
-                <span>{{ test.time }} мин</span>
+                <span>{{ test.time_limit }} мин</span>
               </div>
               <div class="meta-item">
                 <span class="meta-icon">👥</span>
-                <span>{{ formatNumber(test.attempts) }}</span>
+                <span>{{ formatNumber(test.attempts_count || 0) }}</span>
               </div>
             </div>
 
             <div class="test-footer">
               <div class="test-author">
                 <span class="author-icon">👤</span>
-                <span>{{ test.author }}</span>
+                <span>{{ test.author_name || 'Преподаватель' }}</span>
               </div>
               <button class="btn btn-primary btn-sm">Начать</button>
             </div>
@@ -170,19 +170,19 @@
           <div class="detail-meta-grid">
             <div class="detail-meta-item">
               <span class="meta-label">Вопросов</span>
-              <span class="meta-value">{{ selectedTest.questions }}</span>
+              <span class="meta-value">{{ selectedTest.questions_count || selectedTest.questions }}</span>
             </div>
             <div class="detail-meta-item">
               <span class="meta-label">Время</span>
-              <span class="meta-value">{{ selectedTest.time }} мин</span>
+              <span class="meta-value">{{ selectedTest.time_limit }} мин</span>
             </div>
             <div class="detail-meta-item">
               <span class="meta-label">Прошли</span>
-              <span class="meta-value">{{ formatNumber(selectedTest.attempts) }}</span>
+              <span class="meta-value">{{ formatNumber(selectedTest.attempts_count || 0) }}</span>
             </div>
             <div class="detail-meta-item">
-              <span class="meta-label">Рейтинг</span>
-              <span class="meta-value">{{ selectedTest.rating }}/5</span>
+              <span class="meta-label">Проходной</span>
+              <span class="meta-value">{{ selectedTest.passing_score }}%</span>
             </div>
           </div>
 
@@ -191,7 +191,7 @@
             <p>{{ selectedTest.description }}</p>
           </div>
 
-          <div class="detail-section">
+          <div class="detail-section" v-if="selectedTest.learnings && selectedTest.learnings.length">
             <h3>Что вы узнаете</h3>
             <ul class="detail-list">
               <li v-for="(item, index) in selectedTest.learnings" :key="index">
@@ -200,7 +200,7 @@
             </ul>
           </div>
 
-          <div class="detail-section">
+          <div class="detail-section" v-if="selectedTest.requirements && selectedTest.requirements.length">
             <h3>Требования</h3>
             <ul class="detail-list">
               <li v-for="(req, index) in selectedTest.requirements" :key="index">
@@ -224,6 +224,7 @@
 </template>
 
 <script>
+import { supabase } from '@/lib/supabase'
 import AppNavigation from '../components/navigation'
 import AppFooter from '../components/footer'
 
@@ -235,7 +236,7 @@ export default {
   },
   data() {
     return {
-      loading: false,
+      loading: true,
       searchQuery: '',
       selectedCategory: 'all',
       selectedDifficulty: 'all',
@@ -244,213 +245,15 @@ export default {
       pageSize: 9,
       selectedTest: null,
 
-      // Данные тестов (в реальном проекте приходят с API)
-      tests: [
-        {
-          id: 1,
-          title: 'Основы JavaScript',
-          description: 'Проверьте свои знания основ JavaScript: переменные, типы данных, функции, циклы.',
-          category: 'Программирование',
-          difficulty: 'beginner',
-          questions: 25,
-          time: 30,
-          attempts: 15420,
-          rating: 4.8,
-          author: 'Анна К.',
-          learnings: [
-            'Основы синтаксиса JavaScript',
-            'Работа с переменными и типами данных',
-            'Функции и области видимости',
-            'Циклы и условные операторы'
-          ],
-          requirements: [
-            'Базовое понимание программирования',
-            'Желание учиться'
-          ]
-        },
-        {
-          id: 2,
-          title: 'Python для начинающих',
-          description: 'Изучите основы Python и научитесь писать первые программы.',
-          category: 'Программирование',
-          difficulty: 'beginner',
-          questions: 30,
-          time: 40,
-          attempts: 12350,
-          rating: 4.9,
-          author: 'Михаил С.',
-          learnings: [
-            'Синтаксис Python',
-            'Работа со строками и числами',
-            'Списки и словари',
-            'Функции и модули'
-          ],
-          requirements: [
-            'Базовые навыки работы с компьютером',
-            'Английский на уровне чтения документации'
-          ]
-        },
-        {
-          id: 3,
-          title: 'Продвинутый JavaScript',
-          description: 'Сложные концепции JavaScript: замыкания, прототипы, асинхронность.',
-          category: 'Программирование',
-          difficulty: 'advanced',
-          questions: 40,
-          time: 60,
-          attempts: 8760,
-          rating: 4.7,
-          author: 'Дмитрий В.',
-          learnings: [
-            'Замыкания и лексическое окружение',
-            'Прототипное наследование',
-            'Асинхронность: промисы, async/await',
-            'Событийный цикл'
-          ],
-          requirements: [
-            'Уверенное знание основ JavaScript',
-            'Опыт написания небольших скриптов'
-          ]
-        },
-        {
-          id: 4,
-          title: 'Общая биология',
-          description: 'Тест по основным разделам биологии для старшеклассников.',
-          category: 'Биология',
-          difficulty: 'intermediate',
-          questions: 50,
-          time: 45,
-          attempts: 6230,
-          rating: 4.6,
-          author: 'Елена М.',
-          learnings: [
-            'Клеточная теория',
-            'Генетика и эволюция',
-            'Экосистемы',
-            'Анатомия человека'
-          ],
-          requirements: [
-            'Школьный курс биологии',
-            'Подготовка к ЕГЭ'
-          ]
-        },
-        {
-          id: 5,
-          title: 'История России XX век',
-          description: 'Проверьте знание ключевых событий российской истории прошлого века.',
-          category: 'История',
-          difficulty: 'intermediate',
-          questions: 35,
-          time: 40,
-          attempts: 4820,
-          rating: 4.5,
-          author: 'Александр И.',
-          learnings: [
-            'Революция и Гражданская война',
-            'Великая Отечественная война',
-            'Оттепель и застой',
-            'Перестройка'
-          ],
-          requirements: [
-            'Школьный курс истории',
-            'Интерес к истории России'
-          ]
-        },
-        {
-          id: 6,
-          title: 'Линейная алгебра',
-          description: 'Тест по матрицам, векторам и системам линейных уравнений.',
-          category: 'Математика',
-          difficulty: 'advanced',
-          questions: 20,
-          time: 50,
-          attempts: 3150,
-          rating: 4.8,
-          author: 'Николай П.',
-          learnings: [
-            'Матрицы и операции с ними',
-            'Определители',
-            'Системы линейных уравнений',
-            'Векторные пространства'
-          ],
-          requirements: [
-            'Знание школьной алгебры',
-            'Студенты технических специальностей'
-          ]
-        },
-        {
-          id: 7,
-          title: 'Английский Intermediate',
-          description: 'Проверьте свой уровень владения английским языком.',
-          category: 'Языки',
-          difficulty: 'intermediate',
-          questions: 60,
-          time: 45,
-          attempts: 9870,
-          rating: 4.7,
-          author: 'Мария Л.',
-          learnings: [
-            'Грамматика среднего уровня',
-            'Лексика для повседневного общения',
-            'Чтение и понимание текстов',
-            'Аудирование'
-          ],
-          requirements: [
-            'Уровень Pre-Intermediate',
-            'Желание проверить свои знания'
-          ]
-        },
-        {
-          id: 8,
-          title: 'HR для начинающих',
-          description: 'Основы управления персоналом и HR-процессов.',
-          category: 'Бизнес',
-          difficulty: 'beginner',
-          questions: 25,
-          time: 30,
-          attempts: 2100,
-          rating: 4.4,
-          author: 'Светлана К.',
-          learnings: [
-            'Поиск и подбор персонала',
-            'Адаптация сотрудников',
-            'Оценка и развитие',
-            'Кадровое делопроизводство'
-          ],
-          requirements: [
-            'Начинающие HR-специалисты',
-            'Руководители малого бизнеса'
-          ]
-        },
-        {
-          id: 9,
-          title: 'Adobe Photoshop',
-          description: 'Тест по инструментам и техникам работы в Photoshop.',
-          category: 'Дизайн',
-          difficulty: 'intermediate',
-          questions: 30,
-          time: 35,
-          attempts: 4320,
-          rating: 4.6,
-          author: 'Алексей Р.',
-          learnings: [
-            'Инструменты выделения',
-            'Работа со слоями и масками',
-            'Цветокоррекция',
-            'Ретушь'
-          ],
-          requirements: [
-            'Базовое знакомство с Photoshop',
-            'Графический планшет (желательно)'
-          ]
-        }
-      ]
+      // Данные из Supabase
+      tests: [],
+      categories: [],
+
+      // Для fallback, если данные не загрузятся
+      usingFallbackData: false
     }
   },
   computed: {
-    categories() {
-      return [...new Set(this.tests.map(t => t.category))].sort()
-    },
     filteredTests() {
       let filtered = this.tests
 
@@ -459,8 +262,8 @@ export default {
         const query = this.searchQuery.toLowerCase()
         filtered = filtered.filter(test =>
             test.title.toLowerCase().includes(query) ||
-            test.description.toLowerCase().includes(query) ||
-            test.category.toLowerCase().includes(query)
+            (test.description && test.description.toLowerCase().includes(query)) ||
+            (test.category && test.category.toLowerCase().includes(query))
         )
       }
 
@@ -502,7 +305,302 @@ export default {
       this.currentPage = 1
     }
   },
+  async created() {
+    await this.fetchTests()
+  },
   methods: {
+    async fetchTests() {
+      this.loading = true
+
+      try {
+        // Получаем опубликованные тесты
+        const { data: testsData, error: testsError } = await supabase
+            .from('tests')
+            .select(`
+            id,
+            title,
+            description,
+            difficulty,
+            time_limit,
+            passing_score,
+            category,
+            tags,
+            created_by,
+            created_at,
+            profiles:created_by (
+              first_name,
+              last_name
+            )
+          `)
+            .eq('status', 'published')
+            .order('created_at', { ascending: false })
+
+        if (testsError) throw testsError
+
+        // Для каждого теста получаем количество вопросов
+        const testsWithDetails = await Promise.all((testsData || []).map(async (test) => {
+          // Количество вопросов
+          const { count: questionsCount, error: questionsError } = await supabase
+              .from('questions')
+              .select('*', { count: 'exact', head: true })
+              .eq('test_id', test.id)
+
+          if (questionsError) console.error('Error fetching questions count:', questionsError)
+
+          // Количество попыток (упрощенно - общее количество)
+          const { count: attemptsCount, error: attemptsError } = await supabase
+              .from('attempts')
+              .select('*', { count: 'exact', head: true })
+              .eq('test_id', test.id)
+              .eq('status', 'completed')
+
+          if (attemptsError) console.error('Error fetching attempts count:', attemptsError)
+
+          // Формируем имя автора
+          const authorName = test.profiles
+              ? `${test.profiles.first_name || ''} ${test.profiles.last_name || ''}`.trim()
+              : 'Преподаватель'
+
+          return {
+            ...test,
+            questions: questionsCount || 0,
+            attempts: attemptsCount || 0,
+            author: authorName || 'Преподаватель',
+            rating: 4.5, // Заглушка, в реальности нужно вычислять
+            learnings: [], // Эти данные нужно хранить отдельно или генерировать
+            requirements: [] // Эти данные нужно хранить отдельно или генерировать
+          }
+        }))
+
+        this.tests = testsWithDetails
+
+        // Получаем уникальные категории
+        const uniqueCategories = [...new Set(testsWithDetails.map(t => t.category).filter(Boolean))]
+        this.categories = uniqueCategories.sort()
+
+        // Если тестов нет, используем fallback данные
+        if (this.tests.length === 0) {
+          console.log('No tests found, using fallback data')
+          this.useFallbackData()
+        }
+
+      } catch (error) {
+        console.error('Error fetching tests:', error)
+        this.useFallbackData()
+      } finally {
+        this.loading = false
+      }
+    },
+
+    useFallbackData() {
+      this.usingFallbackData = true
+
+      // Тестовые данные из исходного компонента
+      this.tests = [
+        {
+          id: '1',
+          title: 'Основы JavaScript',
+          description: 'Проверьте свои знания основ JavaScript: переменные, типы данных, функции, циклы.',
+          category: 'Программирование',
+          difficulty: 'beginner',
+          questions: 25,
+          time_limit: 30,
+          attempts: 15420,
+          rating: 4.8,
+          author: 'Анна К.',
+          learnings: [
+            'Основы синтаксиса JavaScript',
+            'Работа с переменными и типами данных',
+            'Функции и области видимости',
+            'Циклы и условные операторы'
+          ],
+          requirements: [
+            'Базовое понимание программирования',
+            'Желание учиться'
+          ]
+        },
+        {
+          id: '2',
+          title: 'Python для начинающих',
+          description: 'Изучите основы Python и научитесь писать первые программы.',
+          category: 'Программирование',
+          difficulty: 'beginner',
+          questions: 30,
+          time_limit: 40,
+          attempts: 12350,
+          rating: 4.9,
+          author: 'Михаил С.',
+          learnings: [
+            'Синтаксис Python',
+            'Работа со строками и числами',
+            'Списки и словари',
+            'Функции и модули'
+          ],
+          requirements: [
+            'Базовые навыки работы с компьютером',
+            'Английский на уровне чтения документации'
+          ]
+        },
+        {
+          id: '3',
+          title: 'Продвинутый JavaScript',
+          description: 'Сложные концепции JavaScript: замыкания, прототипы, асинхронность.',
+          category: 'Программирование',
+          difficulty: 'advanced',
+          questions: 40,
+          time_limit: 60,
+          attempts: 8760,
+          rating: 4.7,
+          author: 'Дмитрий В.',
+          learnings: [
+            'Замыкания и лексическое окружение',
+            'Прототипное наследование',
+            'Асинхронность: промисы, async/await',
+            'Событийный цикл'
+          ],
+          requirements: [
+            'Уверенное знание основ JavaScript',
+            'Опыт написания небольших скриптов'
+          ]
+        },
+        {
+          id: '4',
+          title: 'Общая биология',
+          description: 'Тест по основным разделам биологии для старшеклассников.',
+          category: 'Биология',
+          difficulty: 'intermediate',
+          questions: 50,
+          time_limit: 45,
+          attempts: 6230,
+          rating: 4.6,
+          author: 'Елена М.',
+          learnings: [
+            'Клеточная теория',
+            'Генетика и эволюция',
+            'Экосистемы',
+            'Анатомия человека'
+          ],
+          requirements: [
+            'Школьный курс биологии',
+            'Подготовка к ЕГЭ'
+          ]
+        },
+        {
+          id: '5',
+          title: 'История России XX век',
+          description: 'Проверьте знание ключевых событий российской истории прошлого века.',
+          category: 'История',
+          difficulty: 'intermediate',
+          questions: 35,
+          time_limit: 40,
+          attempts: 4820,
+          rating: 4.5,
+          author: 'Александр И.',
+          learnings: [
+            'Революция и Гражданская война',
+            'Великая Отечественная война',
+            'Оттепель и застой',
+            'Перестройка'
+          ],
+          requirements: [
+            'Школьный курс истории',
+            'Интерес к истории России'
+          ]
+        },
+        {
+          id: '6',
+          title: 'Линейная алгебра',
+          description: 'Тест по матрицам, векторам и системам линейных уравнений.',
+          category: 'Математика',
+          difficulty: 'advanced',
+          questions: 20,
+          time_limit: 50,
+          attempts: 3150,
+          rating: 4.8,
+          author: 'Николай П.',
+          learnings: [
+            'Матрицы и операции с ними',
+            'Определители',
+            'Системы линейных уравнений',
+            'Векторные пространства'
+          ],
+          requirements: [
+            'Знание школьной алгебры',
+            'Студенты технических специальностей'
+          ]
+        },
+        {
+          id: '7',
+          title: 'Английский Intermediate',
+          description: 'Проверьте свой уровень владения английским языком.',
+          category: 'Языки',
+          difficulty: 'intermediate',
+          questions: 60,
+          time_limit: 45,
+          attempts: 9870,
+          rating: 4.7,
+          author: 'Мария Л.',
+          learnings: [
+            'Грамматика среднего уровня',
+            'Лексика для повседневного общения',
+            'Чтение и понимание текстов',
+            'Аудирование'
+          ],
+          requirements: [
+            'Уровень Pre-Intermediate',
+            'Желание проверить свои знания'
+          ]
+        },
+        {
+          id: '8',
+          title: 'HR для начинающих',
+          description: 'Основы управления персоналом и HR-процессов.',
+          category: 'Бизнес',
+          difficulty: 'beginner',
+          questions: 25,
+          time_limit: 30,
+          attempts: 2100,
+          rating: 4.4,
+          author: 'Светлана К.',
+          learnings: [
+            'Поиск и подбор персонала',
+            'Адаптация сотрудников',
+            'Оценка и развитие',
+            'Кадровое делопроизводство'
+          ],
+          requirements: [
+            'Начинающие HR-специалисты',
+            'Руководители малого бизнеса'
+          ]
+        },
+        {
+          id: '9',
+          title: 'Adobe Photoshop',
+          description: 'Тест по инструментам и техникам работы в Photoshop.',
+          category: 'Дизайн',
+          difficulty: 'intermediate',
+          questions: 30,
+          time_limit: 35,
+          attempts: 4320,
+          rating: 4.6,
+          author: 'Алексей Р.',
+          learnings: [
+            'Инструменты выделения',
+            'Работа со слоями и масками',
+            'Цветокоррекция',
+            'Ретушь'
+          ],
+          requirements: [
+            'Базовое знакомство с Photoshop',
+            'Графический планшет (желательно)'
+          ]
+        }
+      ]
+
+      // Обновляем категории
+      this.categories = [...new Set(this.tests.map(t => t.category))].sort()
+    },
+
     difficultyLabel(difficulty) {
       const labels = {
         beginner: 'Начальный',
@@ -511,28 +609,31 @@ export default {
       }
       return labels[difficulty] || difficulty
     },
+
     formatNumber(num) {
       if (num >= 1000) {
         return (num / 1000).toFixed(1) + 'k'
       }
       return num.toString()
     },
+
     pluralize(count, forms) {
       const cases = [2, 0, 1, 1, 1, 2]
       return forms[
           count % 100 > 4 && count % 100 < 20 ? 2 : cases[Math.min(count % 10, 5)]
           ]
     },
+
     sortTests(tests) {
       const sorted = [...tests]
 
       switch (this.sortBy) {
         case 'popular':
-          return sorted.sort((a, b) => b.attempts - a.attempts)
+          return sorted.sort((a, b) => (b.attempts || 0) - (a.attempts || 0))
         case 'newest':
-          return sorted.sort((a, b) => b.id - a.id)
+          return sorted.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
         case 'oldest':
-          return sorted.sort((a, b) => a.id - b.id)
+          return sorted.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
         case 'nameAsc':
           return sorted.sort((a, b) => a.title.localeCompare(b.title))
         case 'nameDesc':
@@ -541,24 +642,40 @@ export default {
           return sorted
       }
     },
+
     resetFilters() {
       this.searchQuery = ''
       this.selectedCategory = 'all'
       this.selectedDifficulty = 'all'
       this.sortBy = 'popular'
     },
+
     openTest(test) {
       this.selectedTest = test
     },
-    startTest() {
-      this.starting = true
-      setTimeout(() => {
-        this.$router.push(`/test/${this.testId}/take`)
-      }, 800)
+
+    async startTest(test) {
+      // Проверяем, авторизован ли пользователь
+      const {data, error} = await supabase.auth.signInWithPassword({
+        email: 'student1@example.com',
+        password: '1',
+      })
+      console.log(data)
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        // Если не авторизован, показываем модалку входа
+        this.$emit('open-login')
+        return
+      }
+      console.log(user)
+      // Переходим на страницу начала теста
+      this.$router.push(`/test/${test.id}/take`)
     }
   }
 }
 </script>
+
 
 <style scoped>
 .catalog {

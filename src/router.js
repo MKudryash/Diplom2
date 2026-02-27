@@ -42,6 +42,16 @@ export default new Router({
           component: test_results,
       },
       {
+          name: 'TestReview',
+          path: '/test/:id/review',
+          component: test_review,
+      },
+      {
+          name: 'TestReports',
+          path: '/test/:id/reports',
+          component: test_reports,
+      },
+      {
           name: 'StudentProfile',
           path: '/profile',
           component: student_profile,
@@ -65,11 +75,7 @@ export default new Router({
                   path: 'groups',
                   component: teacher_groups,
               },
-              {
-                  name: 'TestReports',
-                  path: 'test/:id/reports',
-                  component: test_reports,
-              }
+
           ]
       },
     {
