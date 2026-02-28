@@ -217,6 +217,7 @@ export default {
         drafts: this.tests.filter(t => t.status === 'draft').length,
         archived: this.tests.filter(t => t.status === 'archived').length,
         totalAttempts: this.tests.reduce((sum, t) => sum + (t.attempts_count || 0), 0)
+
       }
     },
 
@@ -273,7 +274,6 @@ export default {
             `)
             .eq('created_by', user.id)
             .order('created_at', { ascending: false })
-
         if (testsError) throw testsError
 
         // Для каждого теста получаем дополнительную информацию
@@ -284,6 +284,8 @@ export default {
               .select('*', { count: 'exact', head: true })
               .eq('test_id', test.id)
               .eq('status', 'completed')
+
+          console.log(attemptsCount, attemptsError)
 
           if (attemptsError) {
             console.error('Error loading attempts:', attemptsError)
@@ -313,6 +315,7 @@ export default {
             attempts_count: attemptsCount || 0,
             groups
           }
+
         }))
 
       } catch (error) {
@@ -483,7 +486,7 @@ export default {
     },
 
     viewReports(id) {
-      this.$router.push(`/teacher/test/${id}/reports`)
+      this.$router.push(`/test/${id}/review`)
     }
   }
 }

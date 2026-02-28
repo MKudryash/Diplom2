@@ -92,9 +92,6 @@
                   <button @click="assignTest(group.id)" class="btn btn-outline btn-sm">
                     Назначить тест
                   </button>
-                  <button @click="viewGroupStats(group.id)" class="btn btn-outline btn-sm">
-                    Статистика
-                  </button>
                 </div>
               </div>
             </div>

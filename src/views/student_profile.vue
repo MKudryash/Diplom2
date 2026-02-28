@@ -549,12 +549,16 @@ export default {
       try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('*')
+            .select('*,user_settings(*)')
             .eq('id', this.user.id)
             .single()
 
         if (error) throw error
+
         this.profile = data || {}
+
+        console.log(this.profile)
+        this.settingsForm = data.user_settings
 
         // Инициализируем формы
         this.initForms()
@@ -581,12 +585,12 @@ export default {
         group_name: this.profile.group_name || '',
         bio: this.profile.bio || '',
         notifications: {
-          email: true,
-          results: true,
-          reminders: false
+          email: this.profile.user_settings.email_notifications,
+          results: this.profile.user_settings.result_notifications,
+          reminders: this.profile.user_settings.reminder_notification,
         },
         privacy: {
-          showProgress: true,
+          showProgress: this.profile.user_settings.show_progress,
           showAchievements: false
         }
       }
@@ -599,11 +603,13 @@ export default {
         // Получаем все завершенные попытки
         const { data: attempts, error } = await supabase
             .from('attempts')
-            .select('score, created_at')
+            .select('score, started_at')
             .eq('user_id', this.user.id)
             .eq('status', 'completed')
-            .order('created_at', { ascending: true })
+            .order('started_at', { ascending: true })
 
+
+        console.log(attempts)
         if (error) throw error
 
         const testsPassed = attempts?.length || 0
@@ -614,9 +620,10 @@ export default {
         // Вычисляем количество дней с первой активности
         let daysActive = 0
         if (attempts && attempts.length > 0) {
-          const firstAttempt = new Date(attempts[0].created_at)
+          const firstAttempt = new Date(attempts[0].started_at)
           const now = new Date()
           daysActive = Math.floor((now - firstAttempt) / (1000 * 60 * 60 * 24))
+          console.log('daysActive', daysActive)
         }
 
         this.stats = {
@@ -648,6 +655,7 @@ export default {
             .order('completed_at', { ascending: false })
             .limit(5)
 
+        console.log(attempts)
         if (error) throw error
 
         this.recentActivity = (attempts || []).map(a => ({
@@ -901,8 +909,21 @@ export default {
         if (error) throw error
 
         // Здесь также нужно сохранять настройки уведомлений
-        // (если есть отдельная таблица user_settings)
 
+        console.log(this.settingsForm.notifications.email)
+        console.log(this.settingsForm.notifications.results)
+        console.log(this.settingsForm.notifications.reminders)
+        console.log(this.user.id)
+        const { error1 } = await supabase
+            .from('user_settings')
+            .update({
+              email_notifications:this.settingsForm.notifications.email,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', this.user.id)
+
+        console.log(error1)
+        if (error1) throw error1
         await this.loadProfile()
         alert('Настройки сохранены')
 

@@ -111,14 +111,14 @@
               </div>
               <div class="meta-item">
                 <span class="meta-icon">👥</span>
-                <span>{{ formatNumber(test.attempts_count || 0) }}</span>
+                <span>{{ formatNumber(test.attempts || 0) }}</span>
               </div>
             </div>
 
             <div class="test-footer">
               <div class="test-author">
                 <span class="author-icon">👤</span>
-                <span>{{ test.author_name || 'Преподаватель' }}</span>
+                <span>{{ test.author || 'Преподаватель' }}</span>
               </div>
               <button class="btn btn-primary btn-sm">Начать</button>
             </div>
@@ -178,7 +178,7 @@
             </div>
             <div class="detail-meta-item">
               <span class="meta-label">Прошли</span>
-              <span class="meta-value">{{ formatNumber(selectedTest.attempts_count || 0) }}</span>
+              <span class="meta-value">{{ formatNumber(selectedTest.attempts || 0) }}</span>
             </div>
             <div class="detail-meta-item">
               <span class="meta-label">Проходной</span>
@@ -335,6 +335,7 @@ export default {
             .eq('status', 'published')
             .order('created_at', { ascending: false })
 
+        console.log(testsData)
         if (testsError) throw testsError
 
         // Для каждого теста получаем количество вопросов
@@ -354,6 +355,8 @@ export default {
               .eq('test_id', test.id)
               .eq('status', 'completed')
 
+          console.log(attemptsCount)
+          console.log(questionsCount)
           if (attemptsError) console.error('Error fetching attempts count:', attemptsError)
 
           // Формируем имя автора
@@ -361,6 +364,7 @@ export default {
               ? `${test.profiles.first_name || ''} ${test.profiles.last_name || ''}`.trim()
               : 'Преподаватель'
 
+          console.log(authorName)
           return {
             ...test,
             questions: questionsCount || 0,

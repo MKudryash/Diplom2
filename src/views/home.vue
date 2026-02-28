@@ -5,14 +5,10 @@
     <!-- Hero Section - Максимально просто -->
     <section class="hero">
       <div class="container">
-        <h1 class="hero-title">Нетеста.</h1>
+        <h1 class="hero-title">Нетеста</h1>
         <p class="hero-subtitle">
           Платформа для создания тестов, управления группами <br>и анализа результатов. Без лишнего.
         </p>
-        <div class="hero-actions">
-          <a href="/login" class="btn btn-primary">Войти</a>
-          <a href="/register" class="btn btn-outline">Зарегистрироваться</a>
-        </div>
         <div class="hero-badges">
           <span>Быстро</span>
           <span>Надежно</span>

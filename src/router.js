@@ -81,8 +81,7 @@ export default new Router({
                   name: 'TeacherGroups',
                   path: 'groups',
                   component: teacher_groups,
-              },
-
+              }
           ]
       },
     {

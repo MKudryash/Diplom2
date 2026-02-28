@@ -22,13 +22,6 @@
             >
               👥 Группы
             </router-link>
-            <router-link
-                to="/teacher/analytics"
-                class="nav-link"
-                active-class="active"
-            >
-              📊 Аналитика
-            </router-link>
           </div>
 
           <div class="teacher-quick-actions">
@@ -102,7 +95,7 @@ export default {
 /* Специфичная навигация преподавателя */
 .teacher-nav {
   position: sticky;
-  top: 60px; /* Высота основной навигации */
+  top: 70px; /* Высота основной навигации */
   z-index: 90;
   background: white;
   border-bottom: 1px solid #eee;
