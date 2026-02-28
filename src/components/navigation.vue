@@ -7,8 +7,6 @@
       <div class="nav-menu">
         <a href="/" class="nav-link">Главная</a>
         <a href="/tests" class="nav-link">Тесты</a>
-        <a href="#features" class="nav-link">Возможности</a>
-        <a href="#stats" class="nav-link">Статистика</a>
         <a v-if="isTeacher" href="/teacher/tests" class="nav-link">Панель преподавателя</a>
       </div>
 
@@ -148,9 +146,9 @@ export default {
   computed: {
     profileLink() {
       if (this.isTeacher) {
-        return '/teacher/profile' // или '/teacher' если у вас там профиль
+        return '/teacher/profile'
       }
-      return '/profile' // для студентов
+      return '/profile'
     },
 
     // Текст для пункта меню
