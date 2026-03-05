@@ -1,9 +1,11 @@
 const path = require('path')
 
 module.exports = {
-  devServer: {
-    allowedHosts: "all",
-  },
+    devServer: {
+        port: 50312,
+        host: '0.0.0.0',  // Важно для доступа извне контейнера
+        allowedHosts: 'all',
+    },
   css: {
     loaderOptions: {
       css: {
