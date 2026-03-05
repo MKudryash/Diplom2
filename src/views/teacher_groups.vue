@@ -13,7 +13,9 @@
 
         <!-- Ошибка загрузки -->
         <div v-else-if="error" class="error-state">
-          <p class="error-icon">❌</p>
+          <p class="error-icon">
+            <i class="fas fa-times-circle"></i>
+          </p>
           <h3>Ошибка загрузки</h3>
           <p>{{ error }}</p>
           <button @click="loadData" class="btn btn-primary">Повторить</button>
@@ -88,11 +90,6 @@
                   </span>
                 </div>
 
-                <div class="group-footer">
-                  <button @click="assignTest(group.id)" class="btn btn-outline btn-sm">
-                    Назначить тест
-                  </button>
-                </div>
               </div>
             </div>
           </div>

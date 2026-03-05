@@ -1,4 +1,6 @@
+<!-- Font Awesome через CDN (работает с любым Vue) -->
 <template>
+
   <nav class="nav">
     <div class="nav-container">
       <a href="/" class="nav-logo">Нетеста</a>
@@ -21,28 +23,26 @@
               <span class="user-arrow">▼</span>
             </button>
             <div v-if="userMenuOpen" class="user-dropdown">
-              <!-- Динамический переход на профиль в зависимости от роли -->
               <router-link
                   :to="profileLink"
                   class="dropdown-item"
                   @click="userMenuOpen = false"
               >
-                <span>👤</span> {{ profileLinkText }}
+                <i class="fas fa-user"></i> {{ profileLinkText }}
               </router-link>
 
-              <!-- Ссылка на панель преподавателя (только для учителей) -->
               <router-link
                   v-if="isTeacher"
                   to="/teacher/tests"
                   class="dropdown-item"
                   @click="userMenuOpen = false"
               >
-                <span>📋</span> Мои тесты
+                <i class="fas fa-tasks"></i> Мои тесты
               </router-link>
 
-              <!-- Кнопка выхода -->
+
               <a href="#" @click.prevent="logout" class="dropdown-item logout">
-                <span>🚪</span> Выйти
+                <i class="fas fa-sign-out-alt"></i> Выйти
               </a>
             </div>
           </div>

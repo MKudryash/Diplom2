@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  vue-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "50312:8080"  # Пробрасываем порт 8080 из контейнера на порт 50312 хоста
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    # Добавляем для автоматического перезапуска при ошибках
+    restart: unless-stopped

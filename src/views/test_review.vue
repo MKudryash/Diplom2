@@ -13,7 +13,9 @@
 
         <!-- Ошибка загрузки -->
         <div v-else-if="error" class="error-state">
-          <p class="error-icon">❌</p>
+          <p class="error-icon">
+            <i class="fas fa-times-circle"></i>
+          </p>
           <h3>Ошибка загрузки</h3>
           <p>{{ error }}</p>
           <button @click="backToTests" class="btn btn-primary">
@@ -23,7 +25,9 @@
 
         <!-- Нет данных -->
         <div v-else-if="!test" class="empty-state">
-          <p class="empty-icon">📊</p>
+          <p class="empty-icon">
+            <i class="fas fa-chart-bar"></i>
+          </p>
           <h3>Тест не найден</h3>
           <button @click="backToTests" class="btn btn-primary">
             Вернуться к тестам
@@ -43,7 +47,8 @@
             <h1 class="reports-title">{{ test.title }}</h1>
             <div class="header-actions">
               <button @click="exportReports" class="btn btn-outline" :disabled="exporting">
-                {{ exporting ? 'Экспорт...' : '📊 Экспорт отчетов' }}
+                <i :class="exporting ? 'fas fa-spinner fa-spin' : 'fas fa-file-export'"></i>
+                {{ exporting ? ' Экспорт...' : ' Экспорт отчетов' }}
               </button>
             </div>
           </div>

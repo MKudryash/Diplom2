@@ -44,7 +44,9 @@
       </div>
 
       <div v-else-if="error" class="error-state">
-        <p class="error-icon">❌</p>
+        <p class="error-icon">
+          <i class="fas fa-times-circle"></i>
+        </p>
         <h3>Ошибка загрузки</h3>
         <p>{{ error }}</p>
         <button @click="$router.push('/tests')" class="btn btn-primary">
@@ -53,7 +55,9 @@
       </div>
 
       <div v-else-if="test.questionsList.length === 0" class="empty-state">
-        <p class="empty-icon">📝</p>
+        <p class="empty-icon">
+          <i class="fas fa-pencil-alt"></i>
+        </p>
         <h3>В тесте нет вопросов</h3>
         <button @click="$router.push('/tests')" class="btn btn-primary">
           Вернуться к каталогу
@@ -198,7 +202,9 @@
             <!-- Подсказка (если есть) -->
             <div v-if="currentQuestion.hint" class="hint-container">
               <button @click="showHint = !showHint" class="hint-toggle">
-                <span>💡</span>
+               <span>
+    <i class="fas fa-lightbulb"></i>
+</span>
                 {{ showHint ? 'Скрыть подсказку' : 'Показать подсказку' }}
               </button>
               <p v-if="showHint" class="hint-text">{{ currentQuestion.hint }}</p>
@@ -217,7 +223,9 @@
 
             <div class="nav-center">
               <button @click="toggleFlag(currentQuestionIndex)" class="flag-btn-mobile">
-                <span class="flag-icon">⚑</span>
+               <span class="flag-icon">
+    <i class="fas fa-flag"></i>
+</span>
                 {{ isQuestionFlagged(currentQuestionIndex) ? 'Отмечено' : 'Отметить' }}
               </button>
             </div>
@@ -265,7 +273,9 @@
         </div>
 
         <div v-if="test.questionsCount - answeredCount > 0" class="modal-warning">
-          <span class="warning-icon">⚠️</span>
+       <span class="warning-icon">
+    <i class="fas fa-exclamation-triangle"></i>
+</span>
           <span>У вас остались неотвеченные вопросы</span>
         </div>
 

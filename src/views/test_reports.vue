@@ -14,7 +14,9 @@
 
         <!-- Ошибка загрузки -->
         <div v-else-if="error" class="error-state">
-          <p class="error-icon">❌</p>
+          <p class="error-icon">
+            <i class="fas fa-times-circle"></i>
+          </p>
           <h3>Ошибка загрузки</h3>
           <p>{{ error }}</p>
           <button @click="backToResults" class="btn btn-primary">
@@ -24,7 +26,9 @@
 
         <!-- Нет данных -->
         <div v-else-if="!attempt || questions.length === 0" class="empty-state">
-          <p class="empty-icon">📊</p>
+          <p class="empty-icon">
+            <i class="fas fa-chart-bar"></i>
+          </p>
           <h3>Данные не найдены</h3>
           <p>Не удалось загрузить информацию о тесте</p>
           <button @click="backToResults" class="btn btn-primary">
@@ -173,14 +177,18 @@
 
               <!-- Краткая информация (всегда видна) -->
               <div class="question-meta">
+    <span class="meta-item">
+        <span class="meta-icon">
+            <i class="fas fa-clock"></i>
+        </span>
+        {{ question.timeSpent || 0 }} сек
+    </span>
                 <span class="meta-item">
-                  <span class="meta-icon">⏱️</span>
-                  {{ question.timeSpent || 0 }} сек
-                </span>
-                <span class="meta-item">
-                  <span class="meta-icon">📚</span>
-                  {{ question.category || 'Без категории' }}
-                </span>
+        <span class="meta-icon">
+            <i class="fas fa-book"></i>
+        </span>
+        {{ question.category || 'Без категории' }}
+    </span>
               </div>
             </div>
           </div>

@@ -26,7 +26,9 @@
                 placeholder="Поиск по названию или описанию..."
                 class="search-input"
             />
-            <span class="search-icon">🔍</span>
+            <span class="search-icon">
+    <i class="fas fa-search"></i>
+</span>
           </div>
 
           <div class="filter-group">
@@ -74,7 +76,9 @@
 
         <!-- Нет результатов -->
         <div v-else-if="filteredTests.length === 0" class="empty-state">
-          <p class="empty-icon">📋</p>
+          <p class="empty-icon">
+            <i class="fas fa-clipboard"></i>
+          </p>
           <h3>Тесты не найдены</h3>
           <p>Попробуйте изменить параметры поиска</p>
           <button @click="resetFilters" class="btn btn-outline">
@@ -102,25 +106,35 @@
 
             <div class="test-meta">
               <div class="meta-item">
-                <span class="meta-icon">⏱️</span>
+        <span class="meta-icon">
+            <i class="fas fa-clock"></i>
+        </span>
                 <span>{{ test.questions_count || test.questions }} вопросов</span>
               </div>
               <div class="meta-item">
-                <span class="meta-icon">🕒</span>
+        <span class="meta-icon">
+            <i class="fas fa-hourglass-half"></i>
+        </span>
                 <span>{{ test.time_limit }} мин</span>
               </div>
               <div class="meta-item">
-                <span class="meta-icon">👥</span>
+        <span class="meta-icon">
+            <i class="fas fa-users"></i>
+        </span>
                 <span>{{ formatNumber(test.attempts || 0) }}</span>
               </div>
             </div>
 
             <div class="test-footer">
               <div class="test-author">
-                <span class="author-icon">👤</span>
+        <span class="author-icon">
+            <i class="fas fa-user"></i>
+        </span>
                 <span>{{ test.author || 'Преподаватель' }}</span>
               </div>
-              <button class="btn btn-primary btn-sm">Начать</button>
+              <button class="btn btn-primary btn-sm">
+                <i class="fas fa-play"></i> Начать
+              </button>
             </div>
           </div>
         </div>
@@ -224,7 +238,7 @@
 </template>
 
 <script>
-import { supabase } from '@/lib/supabase'
+import {supabase} from '@/lib/supabase'
 import AppNavigation from '../components/navigation'
 import AppFooter from '../components/footer'
 
@@ -314,7 +328,7 @@ export default {
 
       try {
         // Получаем опубликованные тесты
-        const { data: testsData, error: testsError } = await supabase
+        const {data: testsData, error: testsError} = await supabase
             .from('tests')
             .select(`
             id,
@@ -333,7 +347,7 @@ export default {
             )
           `)
             .eq('status', 'published')
-            .order('created_at', { ascending: false })
+            .order('created_at', {ascending: false})
 
         console.log(testsData)
         if (testsError) throw testsError
@@ -341,17 +355,17 @@ export default {
         // Для каждого теста получаем количество вопросов
         const testsWithDetails = await Promise.all((testsData || []).map(async (test) => {
           // Количество вопросов
-          const { count: questionsCount, error: questionsError } = await supabase
+          const {count: questionsCount, error: questionsError} = await supabase
               .from('questions')
-              .select('*', { count: 'exact', head: true })
+              .select('*', {count: 'exact', head: true})
               .eq('test_id', test.id)
 
           if (questionsError) console.error('Error fetching questions count:', questionsError)
 
           // Количество попыток (упрощенно - общее количество)
-          const { count: attemptsCount, error: attemptsError } = await supabase
+          const {count: attemptsCount, error: attemptsError} = await supabase
               .from('attempts')
-              .select('*', { count: 'exact', head: true })
+              .select('*', {count: 'exact', head: true})
               .eq('test_id', test.id)
               .eq('status', 'completed')
 
@@ -660,7 +674,7 @@ export default {
 
     async startTest(test) {
       // Проверяем, авторизован ли пользователь
-      const { data: { user } } = await supabase.auth.getUser()
+      const {data: {user}} = await supabase.auth.getUser()
 
       if (!user) {
         // Если не авторизован, показываем модалку входа
@@ -955,7 +969,9 @@ export default {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-icon {

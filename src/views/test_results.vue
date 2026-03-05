@@ -14,7 +14,9 @@
 
         <!-- Ошибка загрузки -->
         <div v-else-if="error" class="error-state">
-          <p class="error-icon">❌</p>
+          <p class="error-icon">
+            <i class="fas fa-times-circle"></i>
+          </p>
           <h3>Ошибка загрузки</h3>
           <p>{{ error }}</p>
           <button @click="backToCatalog" class="btn btn-primary">
@@ -24,7 +26,9 @@
 
         <!-- Результаты не найдены -->
         <div v-else-if="!attempt" class="empty-state">
-          <p class="empty-icon">📊</p>
+          <p class="empty-icon">
+            <i class="fas fa-chart-bar"></i>
+          </p>
           <h3>Результаты не найдены</h3>
           <p>У вас нет завершенных попыток этого теста</p>
           <button @click="backToCatalog" class="btn btn-primary">
@@ -61,7 +65,9 @@
 
             <div class="score-stats-grid">
               <div class="stat-card">
-                <span class="stat-icon">✓</span>
+        <span class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+        </span>
                 <div class="stat-content">
                   <span class="stat-value">{{ attempt.correct_answers || 0 }}/{{ attempt.total_questions || 0 }}</span>
                   <span class="stat-label">правильных ответов</span>
@@ -69,7 +75,9 @@
               </div>
 
               <div class="stat-card">
-                <span class="stat-icon">⏱️</span>
+        <span class="stat-icon">
+            <i class="fas fa-clock"></i>
+        </span>
                 <div class="stat-content">
                   <span class="stat-value">{{ formatTime(attempt.time_spent || 0) }}</span>
                   <span class="stat-label">время выполнения</span>
@@ -77,7 +85,9 @@
               </div>
 
               <div class="stat-card">
-                <span class="stat-icon">⚑</span>
+        <span class="stat-icon">
+            <i class="fas fa-flag"></i>
+        </span>
                 <div class="stat-content">
                   <span class="stat-value">{{ flaggedCount }}</span>
                   <span class="stat-label">отмеченных вопросов</span>
@@ -85,7 +95,9 @@
               </div>
 
               <div class="stat-card" :class="{ 'success': isPassed, 'fail': !isPassed }">
-                <span class="stat-icon">{{ isPassed ? '🏆' : '📝' }}</span>
+        <span class="stat-icon">
+            <i :class="isPassed ? 'fas fa-trophy' : 'fas fa-pencil-alt'"></i>
+        </span>
                 <div class="stat-content">
                   <span class="stat-value">{{ isPassed ? 'Пройден' : 'Не пройден' }}</span>
                   <span class="stat-label">проходной балл {{ test?.passing_score || 70 }}%</span>

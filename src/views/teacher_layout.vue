@@ -13,14 +13,14 @@
                 class="nav-link"
                 active-class="active"
             >
-              📋 Мои тесты
+              <i class="fas fa-tasks"></i> Мои тесты
             </router-link>
             <router-link
                 to="/teacher/groups"
                 class="nav-link"
                 active-class="active"
             >
-              👥 Группы
+              <i class="fas fa-users"></i> Группы
             </router-link>
           </div>
 
@@ -32,10 +32,8 @@
         </div>
       </div>
     </nav>
-
-    <!-- Основной контент (слот для дочерних страниц) -->
     <main class="teacher-content">
-      <!-- ОТОБРАЖЕНИЕ ДОЧЕРНИХ КОМПОНЕНТОВ -->
+
       <router-view></router-view>
     </main>
 

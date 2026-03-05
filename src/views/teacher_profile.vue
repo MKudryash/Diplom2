@@ -14,7 +14,9 @@
 
         <!-- Ошибка загрузки -->
         <div v-else-if="error" class="error-state">
-          <p class="error-icon">❌</p>
+          <p class="error-icon">
+            <i class="fas fa-times-circle"></i>
+          </p>
           <h3>Ошибка загрузки</h3>
           <p>{{ error }}</p>
           <button @click="loadProfile" class="btn btn-primary">Повторить</button>
@@ -22,7 +24,9 @@
 
         <!-- Не авторизован -->
         <div v-else-if="!user" class="error-state">
-          <p class="error-icon">🔒</p>
+          <p class="error-icon">
+            <i class="fas fa-lock"></i>
+          </p>
           <h3>Требуется авторизация</h3>
           <p>Пожалуйста, войдите в систему</p>
           <button @click="$router.push('/')" class="btn btn-primary">На главную</button>
@@ -84,7 +88,7 @@
                   Редактировать профиль
                 </button>
                 <button @click="goToTests" class="btn btn-primary btn-block">
-                  📋 Управление тестами
+                  <i class="fas fa-tasks"></i> Управление тестами
                 </button>
               </div>
             </div>
@@ -296,8 +300,8 @@
                         <h4>{{ student.name }}</h4>
                         <p>{{ student.group }}</p>
                         <div class="student-stats">
-                          <span>📊 {{ student.testsPassed }} тестов</span>
-                          <span>⭐ {{ student.avgScore }}%</span>
+                          <span><i class="fas fa-chart-bar"></i> {{ student.testsPassed }} тестов</span>
+                          <span><i class="fas fa-star"></i> {{ student.avgScore }}%</span>
                         </div>
                       </div>
                       <button @click="viewStudentProfile(student.id)" class="btn-link-small">

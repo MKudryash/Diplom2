@@ -14,7 +14,9 @@
 
         <!-- Ошибка загрузки -->
         <div v-else-if="error" class="error-state">
-          <p class="error-icon">❌</p>
+          <p class="error-icon">
+            <i class="fas fa-times-circle"></i>
+          </p>
           <h3>Ошибка загрузки</h3>
           <p>{{ error }}</p>
           <button @click="loadTests" class="btn btn-primary">Повторить</button>
@@ -41,7 +43,9 @@
                   placeholder="Поиск по названию..."
                   class="search-input"
               />
-              <span class="search-icon">🔍</span>
+              <span class="search-icon">
+    <i class="fas fa-search"></i>
+</span>
             </div>
 
             <div class="filter-group">
@@ -86,7 +90,9 @@
           <!-- Список тестов -->
           <div class="tests-list">
             <div v-if="paginatedTests.length === 0" class="empty-state">
-              <p class="empty-icon">📝</p>
+              <p class="empty-icon">
+                <i class="fas fa-pencil-alt"></i>
+              </p>
               <h3>Тесты не найдены</h3>
               <p>Создайте свой первый тест</p>
               <button @click="createNewTest" class="btn btn-primary">
@@ -101,10 +107,18 @@
                     {{ statusLabel(test.status) }}
                   </span>
                   <div class="test-actions">
-                    <button @click="editTest(test.id)" class="icon-btn" title="Редактировать">✎</button>
-                    <button @click="duplicateTest(test.id)" class="icon-btn" title="Дублировать">📋</button>
-                    <button @click="toggleArchive(test.id, test.status)" class="icon-btn" :title="test.status === 'archived' ? 'Восстановить' : 'Архивировать'">
-                      {{ test.status === 'archived' ? '↩' : '📦' }}
+                    <button @click="editTest(test.id)" class="icon-btn" title="Редактировать">
+                      <i class="fas fa-pencil-alt"></i>
+                    </button>
+                    <button @click="duplicateTest(test.id)" class="icon-btn" title="Дублировать">
+                      <i class="fas fa-copy"></i>
+                    </button>
+                    <button
+                        @click="toggleArchive(test.id, test.status)"
+                        class="icon-btn"
+                        :title="test.status === 'archived' ? 'Восстановить' : 'Архивировать'"
+                    >
+                      <i :class="test.status === 'archived' ? 'fas fa-undo-alt' : 'fas fa-archive'"></i>
                     </button>
                     <button @click="deleteTest(test.id)" class="icon-btn delete" title="Удалить">✕</button>
                   </div>
@@ -115,19 +129,27 @@
 
                 <div class="test-meta">
                   <div class="meta-item">
-                    <span class="meta-icon">📊</span>
+        <span class="meta-icon">
+            <i class="fas fa-chart-bar"></i>
+        </span>
                     <span>{{ test.questions_count || 0 }} вопросов</span>
                   </div>
                   <div class="meta-item">
-                    <span class="meta-icon">⏱️</span>
+        <span class="meta-icon">
+            <i class="fas fa-clock"></i>
+        </span>
                     <span>{{ test.time_limit || 0 }} мин</span>
                   </div>
                   <div class="meta-item">
-                    <span class="meta-icon">👥</span>
+        <span class="meta-icon">
+            <i class="fas fa-users"></i>
+        </span>
                     <span>{{ test.attempts_count || 0 }} прохождений</span>
                   </div>
                   <div class="meta-item">
-                    <span class="meta-icon">📅</span>
+        <span class="meta-icon">
+            <i class="fas fa-calendar-alt"></i>
+        </span>
                     <span>{{ formatDate(test.updated_at || test.created_at) }}</span>
                   </div>
                 </div>
